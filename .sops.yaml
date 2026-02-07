@@ -1,11 +1,11 @@
 creation_rules:
-  - path_regex: sing-box/secrets/secrets.yaml
+  - path_regex: sing-box/secrets/secrets(\.enc)?\.yaml$
     key_groups:
       - age:
         - &main "age1p9r276rvjh98r93nsvqhzuhlqnawur0j0hn34qmeangcd94mlchqgvm820"
     unencrypted_regex:
       '^(name|flow)$'
-  - path_regex: traefik/secrets/secrets.yaml
+  - path_regex: traefik/secrets/secrets(\.enc)?\.yaml$
     key_groups:
       - age:
         - &main "age1p9r276rvjh98r93nsvqhzuhlqnawur0j0hn34qmeangcd94mlchqgvm820"
