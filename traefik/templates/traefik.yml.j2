@@ -1,0 +1,51 @@
+entryPoints:
+  http:
+    reusePort: true
+    address: ":80"
+    forwardedHeaders:
+      trustedIPs:
+        - "127.0.0.1/32"
+{% for ip in common.cloudflare_ips %}
+        - "{{ ip }}"
+{% endfor %}
+  https:
+    http3: {}
+    reusePort: true
+    address: ":443"
+    forwardedHeaders:
+      trustedIPs:
+        - "127.0.0.1/32"
+{% for ip in common.cloudflare_ips %}
+        - "{{ ip }}"
+{% endfor %}
+
+certificatesResolvers:
+  google:
+    acme:
+      email: {{ common.acme_email }}
+      storage: /etc/traefik/google/acme.json
+      caServer: https://dv.acme-v02.api.pki.goog/directory
+      eab:
+        kid: {{ instance.acme_eab_kid | default(common.acme_eab_kid) }}
+        hmacEncoded: {{ instance.acme_eab_hmac | default(common.acme_eab_hmac) }}
+      dnsChallenge:
+        provider: "cloudflare"
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+  docker:
+    exposedByDefault: false
+    endpoint: "unix:///var/run/docker.sock"
+
+api:
+  dashboard: true
+  insecure: true
+
+log:
+  level: WARN
+  filePath: /etc/traefik/logs/main.log

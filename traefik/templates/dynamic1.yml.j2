@@ -1,0 +1,45 @@
+http:
+  middlewares:
+    https_redirect:
+      redirectscheme:
+        scheme: "https"
+        permanent: true
+    secure-header:
+      headers:
+        referrerPolicy: "no-referrer"
+        stsSeconds: 31536000
+        forceSTSHeader: true
+        stsPreload: true
+        stsIncludeSubdomains: true
+        browserXssFilter: true
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+    nextcloud-reply_dav:
+      redirectregex:
+        regex: "https://(.*)/.well-known/(card|cal)dav"
+        replacement: "https://$$1/remote.php/dav"
+        permanent: true
+    nextcloud-redirect_dav:
+      redirectregex:
+        regex: "https://(.*)/.well-known/(card|cal)dav"
+        replacement: "https://$$1/remote.php/dav"
+    nextcloud-redirect_finger:
+      redirectregex:
+        regex: "https://(.*)/.well-known/webfinger"
+        replacement: "https://$$1/index.php/.well-known/webfinger"
+    nextcloud-redirect_nodeinfo:
+      redirectregex:
+        regex: "https://(.*)/.well-known/nodeinfo"
+        replacement: "https://$$1/index.php/.well-known/nodeinfo"
+    blacklist:
+      ipAllowList:
+        sourceRange:
+{% for range in common.allowed_source_ranges %}
+          - "{{ range }}"
+{% endfor %}
+        ipStrategy:
+          excludedIPs:
+            - "127.0.0.1/32"
+{% for ip in common.cloudflare_ips %}
+            - "{{ ip }}"
+{% endfor %}
