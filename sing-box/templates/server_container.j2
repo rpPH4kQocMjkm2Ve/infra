@@ -1,0 +1,53 @@
+[Unit]
+Description=sing-box container
+
+[Container]
+Image={{ current_instance.image }}
+ContainerName=sing-box
+Pod=sing-box.pod
+Exec=-D /var/lib/sing-box -C /etc/sing-box/ run
+AutoUpdate=registry
+Volume={{ current_instance.volume_path }}:/etc/sing-box:ro
+Volume={{ current_instance.volume_path }}/cache:/etc/sing-box/cache
+Environment=TZ="Europe/Moscow"
+
+Label=traefik.enable=true
+Label=traefik.tcp.routers.sing-box_vless.entryPoints=https
+Label=traefik.tcp.routers.sing-box_vless.rule=HostSNI(`www.google.com`)
+Label=traefik.tcp.routers.sing-box_vless.service=sing-box_vless
+Label=traefik.tcp.routers.sing-box_vless.tls=true
+Label=traefik.tcp.services.sing-box_vless.loadbalancer.server.port=8443
+Label=traefik.tcp.routers.sing-box_vless.tls.passthrough=true
+
+Label=traefik.http.routers.sing-box_grpc.entryPoints=https
+Label=traefik.http.routers.sing-box_grpc.rule=Host(`{{ current_instance.domain }}`)&&PathPrefix(`/{{ keys.grpc }}`)
+Label=traefik.http.routers.sing-box_grpc.service=sing-box_grpc
+Label=traefik.http.routers.sing-box_grpc.tls=true
+Label=traefik.http.routers.sing-box_grpc.tls.domains[0].main={{ current_instance.domain }}
+Label=traefik.http.routers.sing-box_grpc.tls.domains[0].sans={{ current_instance.ech_domain }}
+Label=traefik.http.services.sing-box_grpc.loadbalancer.server.scheme=h2c
+Label=traefik.http.services.sing-box_grpc.loadbalancer.server.port=2053
+Label=traefik.http.routers.sing-box_grpc.tls.certResolver=google
+
+Label=traefik.http.routers.sing-box_ws.entryPoints=https
+Label=traefik.http.routers.sing-box_ws.rule=Host(`{{ current_instance.domain }}`)&&Path(`/{{ keys.ws }}`)
+Label=traefik.http.routers.sing-box_ws.service=sing-box_ws
+Label=traefik.http.routers.sing-box_ws.tls=true
+Label=traefik.http.routers.sing-box_ws.tls.domains[0].main={{ current_instance.domain }}
+Label=traefik.http.routers.sing-box_ws.tls.domains[0].sans={{ current_instance.ech_domain }}
+Label=traefik.http.services.sing-box_ws.loadbalancer.server.port=3053
+Label=traefik.http.routers.sing-box_ws.tls.certResolver=google
+
+Label=traefik.http.routers.sing-box_http-upgrade.entryPoints=https
+Label=traefik.http.routers.sing-box_http-upgrade.rule=Host(`{{ current_instance.domain }}`)&&Path(`/{{ keys.http_upgrade }}`)
+Label=traefik.http.routers.sing-box_http-upgrade.service=sing-box_http-upgrade
+Label=traefik.http.routers.sing-box_http-upgrade.tls=true
+Label=traefik.http.routers.sing-box_http-upgrade.tls.domains[0].main={{ current_instance.domain }}
+Label=traefik.http.routers.sing-box_http-upgrade.tls.domains[0].sans={{ current_instance.ech_domain }}
+Label=traefik.http.services.sing-box_http-upgrade.loadbalancer.server.port=4053
+Label=traefik.http.routers.sing-box_http-upgrade.tls.certResolver=google
+
+[Service]
+Restart=always
+[Install]
+WantedBy=multi-user.target

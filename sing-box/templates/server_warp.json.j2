@@ -1,0 +1,27 @@
+{
+  "endpoints": [
+    {
+      "type": "wireguard",
+      "tag": "warp",
+      "system": false,
+      "mtu": 1280,
+      "address": [
+        "{{ current_instance.warp_ipv4 }}",
+        "{{ current_instance.warp_ipv6 }}"
+      ],
+      "private_key": "{{ current_instance.warp_private_key }}",
+      "peers": [
+        {
+          "address": "{{ warp.address }}",
+          "port": 2408,
+          "public_key": "{{ warp.public_key }}",
+          "allowed_ips": [
+            "0.0.0.0/0"
+          ],
+          "persistent_keepalive_interval": 30,
+          "reserved": [0, 0, 0]
+        }
+      ]
+    }
+  ]
+}

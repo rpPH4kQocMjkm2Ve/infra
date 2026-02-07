@@ -1,0 +1,45 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "strategy": "ipv4_only"
+  },
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "rules": [
+      {"action": "sniff"},
+      {"protocol": "bittorrent", "action": "reject"},
+      {"ip_is_private": true, "outbound": "direct"},
+      {
+        "rule_set": [
+          "geosite-openai",
+          "geosite-category-gov-ru",
+          "geosite-cn",
+          "geosite-category-porn",
+          "youtube",
+          "geoip-cn",
+          "geoip-ru",
+          "main",
+{% for s in srs.user %}
+          "{{ s.name }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+        ],
+        "outbound": "warp"
+      }
+    ]
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/etc/sing-box/cache/cache.db",
+      "cache_id": "1"
+    }
+  }
+}
