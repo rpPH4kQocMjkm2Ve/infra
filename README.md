@@ -1,6 +1,3 @@
-
-
-````markdown
 # infra
 
 Infrastructure-as-code for personal server stack. Podman Quadlet configs, service configs and secrets — all templated, versioned, and deployed over SSH.
@@ -242,4 +239,3 @@ Two IP allowlist middlewares in `dynamic1.yml`:
 **`blacklist-direct`** — for services accessed directly (no CF). Same allowlist, no `ipStrategy`.
 
 Controlled by `behind_cf` flag in service secrets.
-````
