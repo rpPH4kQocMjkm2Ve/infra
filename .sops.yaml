@@ -5,7 +5,7 @@ creation_rules:
         - &main "age1p9r276rvjh98r93nsvqhzuhlqnawur0j0hn34qmeangcd94mlchqgvm820"
     unencrypted_regex:
       '^(name|flow)$'
-  - path_regex: (traefik|element|synapse|metrics|nextcloud)/secrets/secrets(\.enc)?\.yaml$
+  - path_regex: (traefik|element|synapse|metrics|nextcloud|jitsi)/secrets/secrets(\.enc)?\.yaml$
     key_groups:
       - age:
         - &main "age1p9r276rvjh98r93nsvqhzuhlqnawur0j0hn34qmeangcd94mlchqgvm820"
