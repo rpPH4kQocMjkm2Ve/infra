@@ -1,0 +1,87 @@
+server_name: "{{ synapse.server_name }}"
+pid_file: /data/homeserver.pid
+report_stats: false
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client]
+        compress: false
+
+log_config: "/data/{{ synapse.server_name }}.log.config"
+media_store_path: /data/media_store
+signing_key_path: "/data/{{ synapse.server_name }}.signing.key"
+
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+public_baseurl: "https://{{ synapse.server_name }}"
+serve_server_wellknown: true
+
+database:
+  name: psycopg2
+  txn_limit: 10000
+  args:
+    user: synapse_user
+    password: "{{ synapse.postgres_password }}"
+    database: synapse
+    host: synapse_db_1
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+
+suppress_key_server_warning: true
+max_upload_size: 100M
+enable_registration: false
+
+registration_shared_secret: "{{ synapse.registration_shared_secret }}"
+
+retention:
+  enabled: true
+  default_policy:
+    max_lifetime: 24w
+  allowed_lifetime_min: 3d
+  allowed_lifetime_max: 24w
+  purge_jobs:
+    - longest_max_lifetime: 24w
+      interval: 12h
+
+media_retention:
+  local_media_lifetime: 24w
+  remote_media_lifetime: 14d
+
+user_directory:
+  search_all_users: true
+  prefer_local_users: true
+
+turn_uris:
+{% for uri in synapse.turn_uris %}
+  - "{{ uri }}"
+{% endfor %}
+turn_shared_secret: "{{ synapse.turn_shared_secret }}"
+turn_user_lifetime: 86400000
+
+admin_users:
+  - "@synapse-admin:{{ synapse.server_name }}"
+
+rc_login:
+  address:
+    per_second: 1
+    burst_count: 10
+  account:
+    per_second: 1
+    burst_count: 8
+  failed_attempts:
+    per_second: 1
+    burst_count: 10
+
+rc_admin_redaction:
+  per_second: 10
+  burst_count: 100
+
+rc_message:
+  per_second: 10
+  burst_count: 25

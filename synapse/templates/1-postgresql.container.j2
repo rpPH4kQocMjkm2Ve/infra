@@ -1,0 +1,19 @@
+[Unit]
+Description=Postgres container
+
+[Container]
+Image=docker.io/postgres:18
+Pod=synapse.pod
+ContainerName=synapse_db_1
+Environment=POSTGRES_USER=synapse_user
+Environment=POSTGRES_PASSWORD={{ synapse.postgres_password }}
+Environment=POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+Environment=PGDATA=/var/lib/postgresql/18/docker
+Volume=/opt/podman/synapse/db:/var/lib/postgresql
+Environment=TZ=Europe/Moscow
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
