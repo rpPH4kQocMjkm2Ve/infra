@@ -43,3 +43,9 @@ http:
 {% for ip in common.cloudflare_ips %}
             - "{{ ip }}"
 {% endfor %}
+    blacklist-direct:
+      ipAllowList:
+        sourceRange:
+{% for range in common.allowed_source_ranges %}
+          - "{{ range }}"
+{% endfor %}
