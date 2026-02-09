@@ -1,0 +1,17 @@
+[Unit]
+Description=prometheus container
+
+[Container]
+Image=docker.io/prom/prometheus
+ContainerName=prometheus
+Pod=metrics.pod
+AutoUpdate=registry
+Volume=/opt/podman/metrics/prometheus/:/etc/prometheus/
+Volume=prometheus_data:/prometheus
+Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

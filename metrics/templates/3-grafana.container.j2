@@ -1,0 +1,32 @@
+[Unit]
+Description=grafana container
+
+[Container]
+Image=docker.io/grafana/grafana
+ContainerName=grafana
+Pod=metrics.pod
+Volume=grafana_data:/var/lib/grafana
+AutoUpdate=registry
+Label=traefik.enable=true
+Label=traefik.http.routers.http-metrics.entryPoints=http
+Label=traefik.http.routers.http-metrics.rule=Host(`{{ instance.domain }}`)
+Label=traefik.http.routers.http-metrics.middlewares=https_redirect@file
+Label=traefik.http.routers.https-metrics.entryPoints=https
+Label=traefik.http.routers.https-metrics.rule=Host(`{{ instance.domain }}`)
+{% if instance.behind_cf | default(true) %}
+Label=traefik.http.routers.https-metrics.middlewares=secure-header@file,blacklist@file
+{% else %}
+Label=traefik.http.routers.https-metrics.middlewares=secure-header@file,blacklist-direct@file
+{% endif %}
+Label=traefik.http.routers.https-metrics.service=metrics
+Label=traefik.http.routers.https-metrics.tls=true
+Label=traefik.http.routers.https-metrics.tls.domains[0].main={{ instance.domain }}
+Label=traefik.http.routers.https-metrics.tls.domains[0].sans={{ common.ech_domain }}
+Label=traefik.http.services.metrics.loadbalancer.server.port=3000
+Label=traefik.http.routers.https-metrics.tls.certResolver=google
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

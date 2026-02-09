@@ -1,0 +1,20 @@
+[Unit]
+Description=node-exporter container
+
+[Container]
+Image=quay.io/prometheus/node-exporter:latest
+ContainerName=node-exporter
+Pod=metrics.pod
+Network=host
+AutoUpdate=registry
+Volume=/proc:/host/proc:ro
+Volume=/sys:/host/sys:ro
+Volume=/:/rootfs:ro
+Volume=/:/host:ro,rslave
+Exec=--path.rootfs=/host --path.procfs=/host/proc --path.sysfs=/host/sys --collector.filesystem.mount-points-exclude "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs|rootfs/var/lib/containers)($$|/)"
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
