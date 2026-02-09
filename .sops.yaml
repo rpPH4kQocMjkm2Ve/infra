@@ -9,3 +9,7 @@ creation_rules:
     key_groups:
       - age:
         - &main "age1p9r276rvjh98r93nsvqhzuhlqnawur0j0hn34qmeangcd94mlchqgvm820"
+  - path_regex: secrets/hosts(\.enc)?\.yaml$
+    key_groups:
+      - age:
+        - &main "age1p9r276rvjh98r93nsvqhzuhlqnawur0j0hn34qmeangcd94mlchqgvm820"
