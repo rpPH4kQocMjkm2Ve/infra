@@ -1,0 +1,29 @@
+[Unit]
+Description=element-web container
+
+[Container]
+Image=docker.io/vectorim/element-web
+ContainerName=element-web
+Volume=/opt/podman/element_synapse_admin/element_config.json:/app/config.json:ro
+Environment=TZ="Europe/Moscow"
+Environment=ELEMENT_WEB_PORT="8080"
+AutoUpdate=registry
+Label=traefik.enable=true
+Label=traefik.http.routers.http-element-web.entryPoints=http
+Label=traefik.http.routers.http-element-web.rule=Host(`{{ element.element_domain }}`)
+Label=traefik.http.routers.http-element-web.middlewares=https_redirect@file
+Label=traefik.http.routers.https-element-web.entryPoints=https
+Label=traefik.http.routers.https-element-web.rule=Host(`{{ element.element_domain }}`)
+Label=traefik.http.routers.https-element-web.middlewares=secure-header@file
+Label=traefik.http.routers.https-element-web.service=element-web
+Label=traefik.http.routers.https-element-web.tls=true
+Label=traefik.http.routers.https-element-web.tls.domains[0].main={{ element.element_domain }}
+Label=traefik.http.routers.https-element-web.tls.domains[0].sans={{ element.ech_domain }}
+Label=traefik.http.services.element-web.loadbalancer.server.port=8080
+Label=traefik.http.routers.https-element-web.tls.certResolver=google
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

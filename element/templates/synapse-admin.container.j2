@@ -1,0 +1,28 @@
+[Unit]
+Description=synapse-admin container
+
+[Container]
+Image=ghcr.io/etkecc/synapse-admin:latest
+ContainerName=synapse-admin
+Volume=/opt/podman/element_synapse_admin/synapse_config.json:/app/config.json:ro
+Environment=TZ="Europe/Moscow"
+AutoUpdate=registry
+Label=traefik.enable=true
+Label=traefik.http.routers.http-synapse-admin.entryPoints=http
+Label=traefik.http.routers.http-synapse-admin.rule=Host(`{{ element.admin_domain }}`)
+Label=traefik.http.routers.http-synapse-admin.middlewares=https_redirect@file
+Label=traefik.http.routers.https-synapse-admin.entryPoints=https
+Label=traefik.http.routers.https-synapse-admin.rule=Host(`{{ element.admin_domain }}`)
+Label=traefik.http.routers.https-synapse-admin.middlewares=secure-header@file
+Label=traefik.http.routers.https-synapse-admin.service=synapse-admin
+Label=traefik.http.routers.https-synapse-admin.tls=true
+Label=traefik.http.routers.https-synapse-admin.tls.domains[0].main={{ element.admin_domain }}
+Label=traefik.http.routers.https-synapse-admin.tls.domains[0].sans={{ element.ech_domain }}
+Label=traefik.http.services.synapse-admin.loadbalancer.server.port=80
+Label=traefik.http.routers.https-synapse-admin.tls.certResolver=google
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
