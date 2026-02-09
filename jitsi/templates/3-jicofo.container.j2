@@ -1,0 +1,18 @@
+[Unit]
+Description=jitsi-jicofo container
+After=2-prosody.service
+
+[Container]
+Image=docker.io/jitsi/jicofo:{{ jitsi.image_tag }}
+ContainerName=jitsi_jicofo_1
+EnvironmentFile=/opt/podman/jitsi/jitsi.env
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/jicofo:/config:Z
+Label=service="jitsi-jicofo"
+PublishPort=127.0.0.1:8888:8888
+Network=meet-jitsi.network
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

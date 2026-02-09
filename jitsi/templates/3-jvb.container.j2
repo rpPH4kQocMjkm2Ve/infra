@@ -1,0 +1,19 @@
+[Unit]
+Description=jitsi-jvb container
+After=2-prosody.service
+
+[Container]
+Image=docker.io/jitsi/jvb:{{ jitsi.image_tag }}
+ContainerName=jitsi_jvb_1
+EnvironmentFile=/opt/podman/jitsi/jitsi.env
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/jvb:/config:Z
+Label=service="jitsi-jvb"
+PublishPort=10000:10000/udp
+PublishPort=127.0.0.1:8080:8080
+Network=meet-jitsi.network
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

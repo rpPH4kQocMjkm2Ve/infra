@@ -1,0 +1,18 @@
+[Unit]
+Description=jitsi-prosody container
+
+[Container]
+Image=docker.io/jitsi/prosody:{{ jitsi.image_tag }}
+ContainerName=jitsi_prosody_1
+EnvironmentFile=/opt/podman/jitsi/jitsi.env
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/prosody/config:/config:Z
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/prosody/prosody-plugins-custom:/prosody-plugins-custom:Z
+Label=service="jitsi-prosody"
+Network=meet-jitsi.network
+NetworkAlias=xmpp.meet.jitsi
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,33 @@
+[Unit]
+Description=jitsi-web container
+After=2-prosody.service
+
+[Container]
+Image=docker.io/jitsi/web:{{ jitsi.image_tag }}
+ContainerName=jitsi_web_1
+EnvironmentFile=/opt/podman/jitsi/jitsi.env
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/web:/config:Z
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/web/crontabs:/var/spool/cron/crontabs:Z
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/transcripts:/usr/share/jitsi-meet/transcripts:Z
+Volume=/opt/podman/jitsi/jitsi-meet-cfg/web/load-test:/usr/share/jitsi-meet/load-test:Z
+Label=service="jitsi-web"
+Label=traefik.enable=true
+Label=traefik.http.routers.http-jitsi-web.entryPoints=http
+Label=traefik.http.routers.http-jitsi-web.rule=Host(`{{ jitsi.domain }}`)
+Label=traefik.http.routers.http-jitsi-web.middlewares=https_redirect@file
+Label=traefik.http.routers.https-jitsi-web.entryPoints=https
+Label=traefik.http.routers.https-jitsi-web.rule=Host(`{{ jitsi.domain }}`)
+Label=traefik.http.routers.https-jitsi-web.middlewares=secure-header@file
+Label=traefik.http.routers.https-jitsi-web.service=jitsi-web
+Label=traefik.http.routers.https-jitsi-web.tls=true
+Label=traefik.http.routers.https-jitsi-web.tls.domains[0].main={{ jitsi.domain }}
+Label=traefik.http.routers.https-jitsi-web.tls.domains[0].sans={{ jitsi.ech_domain }}
+Label=traefik.http.services.jitsi-web.loadbalancer.server.port=80
+Label=traefik.http.routers.https-jitsi-web.tls.certResolver=google
+Network=meet-jitsi.network
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
