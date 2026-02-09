@@ -1,109 +1,24 @@
 #!/usr/bin/env python3
-"""deploy.py - Element + Synapse-admin deployer"""
-
-import subprocess
 import sys
-import tempfile
-import argparse
 from pathlib import Path
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from lib.sops import decrypt_sops
-from lib.remote import ssh_run, ssh_read_file, rsync_file
-from lib.jinja import create_jinja_env
+from lib.deploy import ServiceDeployer
 
-TEMPLATES_DIR = Path(__file__).parent / 'templates'
-SECRETS_FILE = Path(__file__).parent / 'secrets' / 'secrets.enc.yaml'
+BASE = Path(__file__).parent
 REMOTE_BASE = '/opt/podman/element_synapse_admin'
 
-FILES = [
-    ('element-web.container.j2', '/etc/containers/systemd/element-web.container'),
-    ('synapse-admin.container.j2', '/etc/containers/systemd/synapse-admin.container'),
-    ('element_config.json.j2', f'{REMOTE_BASE}/element_config.json'),
-    ('synapse_config.json.j2', f'{REMOTE_BASE}/synapse_config.json'),
-]
-
-SETUP_DIRS = [REMOTE_BASE]
-RESTART_UNITS = ['element-web', 'synapse-admin']
-
-
-def get_target(secrets: dict) -> tuple[str, int]:
-    ssh = secrets['ssh']
-    return f"{ssh.get('user', 'root')}@{ssh['host']}", ssh.get('port', 22)
-
-
-def cmd_render(secrets: dict, env) -> None:
-    for tpl, remote_path in FILES:
-        name = tpl.removesuffix('.j2')
-        print(f"\033[1;33m═══ {name} → {remote_path} ═══\033[0m")
-        print(env.get_template(tpl).render(**secrets))
-        print()
-
-
-def cmd_diff(secrets: dict, env) -> None:
-    target, port = get_target(secrets)
-    for tpl, remote_path in FILES:
-        name = tpl.removesuffix('.j2')
-        rendered = env.get_template(tpl).render(**secrets)
-        remote_content = ssh_read_file(target, remote_path, port)
-        if rendered == remote_content:
-            print(f"\033[0;32m✓\033[0m {name}")
-        else:
-            print(f"\033[1;33m→\033[0m {name} differs")
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as lf, \
-                 tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as rf:
-                lf.write(rendered); lf.flush()
-                rf.write(remote_content); rf.flush()
-                subprocess.run(['diff', '--color', '-u', rf.name, lf.name])
-            print()
-
-
-def cmd_deploy(secrets: dict, env, no_restart: bool = False) -> None:
-    target, port = get_target(secrets)
-    print(f"\033[1;33m→\033[0m deploying element to {target}")
-
-    ssh_run(target, f"mkdir -p {' '.join(SETUP_DIRS)}", port)
-
-    changed = False
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        for tpl, remote_path in FILES:
-            rendered = env.get_template(tpl).render(**secrets)
-            local_file = tmpdir / tpl.removesuffix('.j2')
-            local_file.write_text(rendered)
-            if rsync_file(local_file, target, remote_path, port):
-                print(f"  \033[1;33m→\033[0m {tpl.removesuffix('.j2')} updated")
-                changed = True
-            else:
-                print(f"  \033[0;32m✓\033[0m {tpl.removesuffix('.j2')} unchanged")
-
-    if not no_restart and changed:
-        restart = ' '.join(RESTART_UNITS)
-        ssh_run(target, f"systemctl daemon-reload && systemctl restart {restart}", port)
-        print(f"  \033[0;32m✓\033[0m restarted")
-    elif not changed:
-        print(f"  \033[0;32m✓\033[0m no changes")
-
-    print(f"\033[0;32m✓\033[0m done\n")
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Element deployer')
-    parser.add_argument('command', choices=['render', 'diff', 'deploy'])
-    parser.add_argument('-s', '--secrets', default=str(SECRETS_FILE))
-    parser.add_argument('--no-restart', action='store_true')
-    args = parser.parse_args()
-
-    secrets = decrypt_sops(Path(args.secrets))
-    env = create_jinja_env(TEMPLATES_DIR)
-
-    if args.command == 'render':
-        cmd_render(secrets, env)
-    elif args.command == 'diff':
-        cmd_diff(secrets, env)
-    elif args.command == 'deploy':
-        cmd_deploy(secrets, env, no_restart=args.no_restart)
-
+deployer = ServiceDeployer({
+    'templates_dir': BASE / 'templates',
+    'secrets_file': BASE / 'secrets' / 'secrets.enc.yaml',
+    'files': [
+        ('element-web.container.j2', '/etc/containers/systemd/element-web.container'),
+        ('synapse-admin.container.j2', '/etc/containers/systemd/synapse-admin.container'),
+        ('element_config.json.j2', f'{REMOTE_BASE}/element_config.json'),
+        ('synapse_config.json.j2', f'{REMOTE_BASE}/synapse_config.json'),
+    ],
+    'setup_dirs': [REMOTE_BASE],
+    'restart_cmd': 'systemctl daemon-reload && systemctl restart element-web synapse-admin',
+})
 
 if __name__ == '__main__':
-    main()
+    deployer.run_cli()
