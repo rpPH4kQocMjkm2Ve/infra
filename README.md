@@ -6,7 +6,8 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 
 | Service | What |
 |---|---|
-| `traefik` | Reverse proxy, TLS termination (Google ACME + Cloudflare DNS) |
+| `certs` | Centralized wildcard TLS certificates (Google ACME + Cloudflare DNS challenge via lego) |
+| `traefik` | Reverse proxy, TLS termination |
 | `synapse` | Matrix homeserver + PostgreSQL |
 | `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx |
 | `element` | Element Web + Synapse Admin |
@@ -25,6 +26,10 @@ infra/
 │   ├── remote.py
 │   ├── jinja.py
 │   └── deploy.py
+├── certs/
+│   ├── deploy.py
+│   ├── secrets/
+│   └── .certstore/          ← gitignored, lego state + certs
 ├── traefik/
 │   ├── deploy.py
 │   ├── templates/
@@ -70,6 +75,34 @@ Deploy flow:
 4. Syncs files to remote via rsync (checksum-based, idempotent)
 5. Restarts systemd units only if something changed
 
+## Certificates
+
+Wildcard certificate is managed centrally by `certs/deploy.py`:
+
+1. Obtains `*.example.com` from Google ACME via Cloudflare DNS challenge using [lego](https://github.com/go-acme/lego)
+2. Uses a local DoH proxy ([dnsproxy](https://github.com/AdguardTeam/dnsproxy)) to bypass DNS caching during propagation checks
+3. Stores certificate locally in `.certstore/`
+4. Distributes cert and key to `/etc/ssl/certs/` and `/etc/ssl/private/` on target servers via rsync
+5. Triggers Traefik config reload via `touch` on dynamic config (no restart needed)
+
+```bash
+cd certs/
+python deploy.py status              # check certificate expiry
+python deploy.py issue               # obtain/renew certificate
+python deploy.py issue --force       # force re-issue regardless of expiry
+python deploy.py distribute          # push to all target servers
+python deploy.py distribute server1  # push to specific server
+python deploy.py renew               # issue if <30 days + distribute
+```
+
+Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
+
+Auto-renewal via cron:
+
+```
+0 3 * * * cd /path/to/infra/certs && python deploy.py renew >> /var/log/cert-renew.log 2>&1
+```
+
 ## Single-instance vs multi-instance
 
 Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
@@ -83,6 +116,8 @@ Services deployed to **multiple servers** (traefik, metrics) have `instances:` w
 - [SOPS](https://github.com/getsops/sops) configured with your age key
 - SSH access to target hosts
 - rsync
+- [lego](https://github.com/go-acme/lego) (for `certs/`)
+- [dnsproxy](https://github.com/AdguardTeam/dnsproxy) (for `certs/`)
 
 ## Secrets
 
@@ -93,6 +128,7 @@ All secrets are SOPS-encrypted.
 sops secrets/hosts.enc.yaml
 
 # Service secrets
+sops certs/secrets/secrets.enc.yaml
 sops traefik/secrets/secrets.enc.yaml
 sops synapse/secrets/secrets.enc.yaml
 sops nextcloud/secrets/secrets.enc.yaml
@@ -116,6 +152,22 @@ server2:
   ssh_user: user_A
 ```
 
+### certs secrets
+
+```yaml
+domain: example.com
+acme_email: you@example.com
+acme_eab_kid: "..."
+acme_eab_hmac: "..."
+cf_api_token: "..."
+
+targets:
+  - host: server1
+    post_deploy: "touch /opt/podman/traefik/settings/dynamic/dynamic_tls.yml"
+  - host: server2
+    post_deploy: "touch /opt/podman/traefik/settings/dynamic/dynamic_tls.yml"
+```
+
 ### Single-instance secrets
 
 ```yaml
@@ -130,7 +182,9 @@ synapse:
 
 ```yaml
 common:
-  ech_domain: ech.example.com
+  cert_domain: example.com
+  cloudflare_ips:
+    - ...
 
 instances:
   server1:
@@ -174,17 +228,21 @@ Service configs go to `/opt/podman/<service>/` and are mounted into containers v
 
 Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
+Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` and are mounted read-only into containers that need them.
+
 ## Remote server layout
 
 ```text
+/etc/ssl/
+├── certs/example.com.crt
+└── private/example.com.key
+
 /opt/podman/
 ├── traefik/
 │   ├── settings/traefik.yml
 │   ├── settings/dynamic/dynamic1.yml
-│   ├── google_acme/
-│   ├── logs/
-│   ├── cf_email
-│   └── cf_token
+│   ├── settings/dynamic/dynamic_tls.yml
+│   └── logs/
 ├── synapse/
 │   ├── data/homeserver.yaml
 │   ├── data/*.signing.key
