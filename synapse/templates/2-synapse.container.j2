@@ -19,7 +19,7 @@ Label=traefik.http.routers.https-synapse.tls=true
 Label=traefik.http.routers.https-synapse.tls.domains[0].main={{ synapse.server_name }}
 Label=traefik.http.routers.https-synapse.tls.domains[0].sans={{ synapse.ech_domain }}
 Label=traefik.http.services.synapse.loadbalancer.server.port=8008
-Label=traefik.http.routers.https-synapse.tls.certResolver=google
+Label=traefik.http.routers.https-synapse.tls=true
 Environment=TZ="Europe/Moscow"
 
 [Service]

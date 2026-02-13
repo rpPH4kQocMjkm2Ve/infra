@@ -10,11 +10,9 @@ PublishPort=443:443/udp
 PublishPort=127.0.0.1:8180:8080
 Volume=/run/podman/podman.sock:/var/run/docker.sock:z
 Volume=/opt/podman/traefik/settings:/etc/traefik
-Volume=/opt/podman/traefik/google_acme:/etc/traefik/google
-Volume=/opt/podman/traefik/cf_token:/etc/traefik/cf_token:ro
 Volume=/opt/podman/traefik/logs:/etc/traefik/logs
-Environment=CLOUDFLARE_EMAIL_FILE=/etc/traefik/cf_email
-Environment=CLOUDFLARE_DNS_API_TOKEN_FILE=/etc/traefik/cf_token
+Volume=/etc/ssl/certs:/etc/ssl/certs:ro
+Volume=/etc/ssl/private:/etc/ssl/private:ro
 Environment=TZ="Europe/Moscow"
 
 [Service]

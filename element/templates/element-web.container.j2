@@ -20,7 +20,7 @@ Label=traefik.http.routers.https-element-web.tls=true
 Label=traefik.http.routers.https-element-web.tls.domains[0].main={{ element.element_domain }}
 Label=traefik.http.routers.https-element-web.tls.domains[0].sans={{ element.ech_domain }}
 Label=traefik.http.services.element-web.loadbalancer.server.port=8080
-Label=traefik.http.routers.https-element-web.tls.certResolver=google
+Label=traefik.http.routers.https-element-web.tls=true
 
 [Service]
 Restart=always

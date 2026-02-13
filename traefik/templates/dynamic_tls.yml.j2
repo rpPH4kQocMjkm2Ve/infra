@@ -1,0 +1,6 @@
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/ssl/certs/{{ common.cert_domain }}.crt
+        keyFile: /etc/ssl/private/{{ common.cert_domain }}.key

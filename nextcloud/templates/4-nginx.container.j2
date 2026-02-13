@@ -20,7 +20,7 @@ Label=traefik.http.routers.https-nextcloud.tls=true
 Label=traefik.http.routers.https-nextcloud.tls.domains[0].main={{ nextcloud.domain }}
 Label=traefik.http.routers.https-nextcloud.tls.domains[0].sans={{ nextcloud.ech_domain }}
 Label=traefik.http.services.nextcloud.loadbalancer.server.port=80
-Label=traefik.http.routers.https-nextcloud.tls.certResolver=google
+Label=traefik.http.routers.https-nextcloud.tls=true
 Environment=TZ=Europe/Moscow
 
 [Service]

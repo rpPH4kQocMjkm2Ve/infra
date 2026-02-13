@@ -23,7 +23,7 @@ Label=traefik.http.routers.https-metrics.tls=true
 Label=traefik.http.routers.https-metrics.tls.domains[0].main={{ instance.domain }}
 Label=traefik.http.routers.https-metrics.tls.domains[0].sans={{ common.ech_domain }}
 Label=traefik.http.services.metrics.loadbalancer.server.port=3000
-Label=traefik.http.routers.https-metrics.tls.certResolver=google
+Label=traefik.http.routers.https-metrics.tls=true
 
 [Service]
 Restart=always
