@@ -13,6 +13,7 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 | `element` | Element Web + Synapse Admin |
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
+| `coturn` | TURN/STUN relay servers for Synapse and Jitsi (native, no container) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 
 ## Structure
@@ -51,6 +52,10 @@ infra/
 │   ├── templates/
 │   └── secrets/
 ├── jitsi/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
+├── coturn/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
@@ -100,6 +105,8 @@ python deploy.py renew               # issue if <30 days + distribute
 
 Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
 
+The same wildcard certificate is used by coturn instances for TURNS — they read directly from `/etc/ssl/` on the host.
+
 Auto-renewal via cron:
 
 ```
@@ -110,7 +117,13 @@ Auto-renewal via cron:
 
 Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, coturn, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
+
+## Containerized vs native
+
+Most services run as **Podman containers** managed via Quadlet units.
+
+**coturn** runs as a **native systemd service** — it needs host networking with specific IP binds and a large UDP port range, and there's no benefit to containerizing it. Only the config file (`turnserver.conf`) is deployed.
 
 ## Prerequisites
 
@@ -138,6 +151,7 @@ sops nextcloud/secrets/secrets.enc.yaml
 sops element/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
 sops jitsi/secrets/secrets.enc.yaml
+sops coturn/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
 ```
 
@@ -199,6 +213,33 @@ instances:
     domain: metrics2.example.com
 ```
 
+### coturn secrets
+
+```yaml
+common:
+  cert_domain: example.com
+
+instances:
+  synapse-turn:
+    host: server1
+    realm: matrix.example.com
+    external_ip: "203.0.113.10"
+    listening_ip: "203.0.113.10"
+    static_auth_secret: "..."
+    fingerprint: true
+    user_quota: 100
+    total_quota: 1200
+  jitsi-turn:
+    host: server2
+    realm: meet.example.com
+    external_ip: "203.0.113.20"
+    listening_ip: "203.0.113.20"
+    static_auth_secret: "..."
+    keep_address_family: true
+    no_loopback_peers: true
+    dh2066: true
+```
+
 ## Usage
 
 ### Single-instance (synapse, nextcloud, element, jitsi)
@@ -211,7 +252,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, sing-box)
+### Multi-instance (traefik, metrics, coturn, sing-box)
 
 ```bash
 cd traefik/
@@ -265,7 +306,9 @@ Service configs go to `/opt/podman/<service>/` and are mounted into containers v
 
 Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
-Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` and are mounted read-only into containers that need them.
+Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn).
+
+coturn config goes to `/etc/turnserver/turnserver.conf` — no container, no Quadlet, just the config for the native systemd service.
 
 ## Remote server layout
 
@@ -273,6 +316,9 @@ Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` and are mounted rea
 /etc/ssl/
 ├── certs/example.com.crt
 └── private/example.com.key
+
+/etc/turnserver/
+└── turnserver.conf
 
 /opt/podman/
 ├── traefik/
