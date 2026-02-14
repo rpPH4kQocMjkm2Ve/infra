@@ -18,8 +18,7 @@ Label=traefik.http.routers.https-synapse-admin.service=synapse-admin
 Label=traefik.http.routers.https-synapse-admin.tls=true
 Label=traefik.http.routers.https-synapse-admin.tls.domains[0].main={{ element.admin_domain }}
 Label=traefik.http.routers.https-synapse-admin.tls.domains[0].sans={{ element.ech_domain }}
-Label=traefik.http.services.synapse-admin.loadbalancer.server.port=80
-Label=traefik.http.routers.https-synapse-admin.tls=true
+Label=traefik.http.services.synapse-admin.loadbalancer.server.port=8080
 
 [Service]
 Restart=always
