@@ -1,0 +1,108 @@
+{# templates/router_main.json.j2 #}
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "output": "{{ router.log_path }}",
+    "timestamp": true
+  },
+  "dns": {
+    "strategy": "prefer_ipv6",
+    "servers": [
+      {
+        "tag": "dns-cloudflare",
+        "type": "https",
+        "server": "1.1.1.1"
+      },
+      {
+        "tag": "local",
+        "type": "local"
+      }
+    ],
+    "rules": [
+      {
+        "domain_suffix": [".local", ".lan"],
+        "server": "local"
+      },
+      {
+        "rule_set": ["main", "youtube"],
+        "server": "dns-cloudflare",
+        "strategy": "ipv4_only"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "tag": "tproxy-ipv4",
+      "listen": "127.0.0.1",
+      "listen_port": {{ router.tproxy.ipv4_port }}
+    },
+    {
+      "type": "tproxy",
+      "tag": "tproxy-ipv6",
+      "listen": "::1",
+      "listen_port": {{ router.tproxy.ipv6_port }}
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct",
+      "routing_mark": {{ router.routing_mark }}
+    },
+{# Balancers for different transport types #}
+{% set balancers = [
+    ('vless-balancer-ipv4', 'vless-ipv4'),
+    ('vless-balancer-grpc', 'vless-grpc'),
+    ('vless-balancer-ws', 'vless-ws'),
+    ('vless-balancer-http-upgrade', 'vless-http-upgrade')
+] %}
+{% for balancer_tag, outbound_prefix in balancers %}
+    {
+      "type": "urltest",
+      "tag": "{{ balancer_tag }}",
+      "outbounds": [
+{% for name, _ in instances.items() %}
+        "{{ outbound_prefix }}-{{ loop.index }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+      ]
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+  ],
+  "route": {
+    "default_domain_resolver": "dns-cloudflare",
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "main",
+        "format": "binary",
+        "update_interval": "10m",
+        "url": "{{ srs.router.link }}"
+      },
+      {
+        "type": "remote",
+        "tag": "youtube",
+        "format": "binary",
+        "update_interval": "1h",
+        "url": "https://github.com/SagerNet/sing-geosite/raw/refs/heads/rule-set/geosite-youtube.srs"
+      }
+    ],
+    "rules": [
+      {"action": "sniff"},
+      {"protocol": "dns", "action": "hijack-dns"},
+      {"port": [123], "outbound": "direct"},
+      {
+        "rule_set": ["main", "youtube"],
+        "outbound": "vless-balancer-ipv4"
+      }
+    ]
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "cache_id": "{{ router.cache_id }}",
+      "path": "{{ router.cache_path }}"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{# templates/router_vless.json.j2 #}
+{# 
+  Generates vless outbounds for router
+  Parameters:
+    - transport: 'vision' | 'grpc' | 'ws' | 'http-upgrade'
+    - tag_prefix: prefix for outbound tags
+#}
+{% set transport = transport | default('vision') %}
+{% set tag_prefix = tag_prefix | default('vless-ipv4') %}
+{
+  "outbounds": [
+{% for name, inst in instances.items() %}
+    {
+      "type": "vless",
+      "tag": "{{ tag_prefix }}-{{ loop.index }}",
+      "server": "{{ inst.address }}",
+      "server_port": 443,
+      "uuid": "{{ current_user.uuid }}",
+      "flow": "{{ current_user.flow if transport == 'vision' else '' }}",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.google.com",
+        "insecure": false,
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "{{ public_key }}",
+          "short_id": "{{ current_user.short_id }}"
+        }
+      },
+{% if transport == 'grpc' %}
+      "transport": {
+        "type": "grpc",
+        "service_name": "grpc"
+      },
+{% elif transport == 'ws' %}
+      "transport": {
+        "type": "ws",
+        "path": "/ws"
+      },
+{% elif transport == 'http-upgrade' %}
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/upgrade"
+      },
+{% endif %}
+      "packet_encoding": "xudp",
+      "routing_mark": {{ router.routing_mark }}
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+  ]
+}

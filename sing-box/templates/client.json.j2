@@ -1,0 +1,129 @@
+{# templates/client.json.j2 #}
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "https",
+        "tag": "cloudflare",
+        "server": "1.1.1.1"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "address": "172.18.0.1/30",
+      "auto_route": true,
+      "strict_route": true,
+      "route_exclude_address": [
+        "192.168.0.0/16",
+        "fc00::/7"
+      ]
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "urltest",
+      "tag": "vless-balancer",
+      "outbounds": [
+        "vless-1",
+        "vless-2"
+      ]
+    },
+{# Generate outbound for each instance #}
+{% for name, inst in instances.items() %}
+    {
+      "type": "vless",
+      "tag": "vless-{{ loop.index }}",
+      "server": "{{ inst.address }}",
+      "server_port": 443,
+      "uuid": "{{ current_user.uuid }}",
+      "flow": "{{ current_user.flow }}",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.google.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "{{ public_key }}",
+          "short_id": "{{ current_user.short_id }}"
+        }
+      },
+      "multiplex": {
+        "max_connections": 8
+      },
+      "packet_encoding": "xudp"
+    },
+{% endfor %}
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "rules": [
+      {"action": "sniff"},
+      {"protocol": "dns", "action": "hijack-dns"},
+      {"protocol": "bittorrent", "action": "reject"},
+      {"rule_set": "youtube", "outbound": "vless-balancer"},
+      {
+        "rule_set": [
+{% for s in srs.user %}
+          "{{ s.name }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+        ],
+        "outbound": "direct"
+      },
+{% for rule in current_user.custom_rules | default([]) %}
+      {{ rule | to_json }},
+{% endfor %}
+      {"port": 123, "outbound": "direct"},
+      {"ip_is_private": true, "outbound": "direct"}
+    ],
+    "rule_set": [
+{# User-defined rule sets #}
+{% for s in srs.user %}
+      {
+        "type": "remote",
+        "tag": "{{ s.name }}",
+        "format": "binary",
+        "url": "{{ s.link }}",
+        "download_detour": "direct",
+        "update_interval": "1h0m0s"
+      },
+{% endfor %}
+{# Static rule sets #}
+{% set static_rules = [
+    ('category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
+    ('geosite-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs'),
+    ('geoip-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs'),
+    ('geoip-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs'),
+    ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs')
+] %}
+{% for tag, url in static_rules %}
+      {
+        "type": "remote",
+        "tag": "{{ tag }}",
+        "url": "{{ url }}",
+        "download_detour": "direct"
+      }{{ "," if not loop.last else "" }}
+{% endfor %}
+    ],
+    "auto_detect_interface": true,
+    "default_domain_resolver": "cloudflare"
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "sing-box_cache.db"
+    }
+  }
+}
