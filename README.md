@@ -13,7 +13,7 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 | `element` | Element Web + Synapse Admin |
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
-| `sing-box` | Proxy server (templates only, generator lives in a separate repo) |
+| `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 
 ## Structure
 
@@ -55,8 +55,11 @@ infra/
 │   ├── templates/
 │   └── secrets/
 └── sing-box/
+    ├── deploy.py             ← server deploy (render/diff/deploy)
+    ├── generate.py           ← client/router config generator + KV
     ├── templates/
-    └── secrets/
+    ├── secrets/
+    └── output/               ← gitignored
 ```
 
 ## How it works
@@ -107,12 +110,12 @@ Auto-renewal via cron:
 
 Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
 
 ## Prerequisites
 
 - Python 3.10+
-- `pip install jinja2 pyyaml`
+- `pip install jinja2 pyyaml requests`
 - [SOPS](https://github.com/getsops/sops) configured with your age key
 - SSH access to target hosts
 - rsync
@@ -135,6 +138,7 @@ sops nextcloud/secrets/secrets.enc.yaml
 sops element/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
 sops jitsi/secrets/secrets.enc.yaml
+sops sing-box/secrets/secrets.enc.yaml
 ```
 
 ### hosts.enc.yaml
@@ -207,7 +211,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics)
+### Multi-instance (traefik, metrics, sing-box)
 
 ```bash
 cd traefik/
@@ -219,6 +223,39 @@ python deploy.py diff --all
 python deploy.py deploy --all
 python deploy.py deploy --all --no-restart
 ```
+
+### sing-box client/router configs
+
+`sing-box/generate.py` generates client and router configs locally and optionally uploads them to Cloudflare Workers KV for remote distribution via URL.
+
+```bash
+cd sing-box/
+
+# Generate configs locally
+python generate.py                          # all clients + routers
+python generate.py --target clients         # only clients
+python generate.py --target router          # only routers
+
+# Generate + upload to Cloudflare KV
+python generate.py --upload
+
+# Token management
+python generate.py --gen-token              # generate 1 token
+python generate.py --gen-token -n 5         # generate 5 tokens
+python generate.py --gen-token --user bob   # generate token for user 'bob'
+
+# KV management
+python generate.py --list-kv                # list all keys in KV
+python generate.py --revoke phone-m         # delete phone-m configs from KV
+python generate.py --purge-kv               # delete everything from KV
+```
+
+Add new user:
+
+1. `python generate.py --gen-token --user new-phone`
+2. `sops secrets/secrets.enc.yaml` — add user block with token
+3. `python generate.py --upload`
+4. Send URL from `output/urls.md`
 
 ## What gets deployed where
 
@@ -259,14 +296,20 @@ Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` and are mounted rea
 │   └── synapse_config.json
 ├── metrics/
 │   └── prometheus/prometheus.yml
-└── jitsi/
-    ├── jitsi.env
-    └── jitsi-meet-cfg/
-        ├── prosody/
-        ├── jicofo/
-        ├── jvb/
-        ├── web/
-        └── transcripts/
+├── jitsi/
+│   ├── jitsi.env
+│   └── jitsi-meet-cfg/
+│       ├── prosody/
+│       ├── jicofo/
+│       ├── jvb/
+│       ├── web/
+│       └── transcripts/
+└── sing-box/
+    └── sing-box_settings/
+        ├── main.json
+        ├── inbounds.json
+        ├── ruleset.json
+        └── warp.json
 ```
 
 ## Adding a new service
