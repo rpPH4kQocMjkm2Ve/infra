@@ -1,0 +1,61 @@
+# Managed by infra repo — {{ instance_name }}
+max-port={{ instance.max_port | default(57952) }}
+listening-port={{ instance.listening_port | default(3478) }}
+tls-listening-port={{ instance.tls_listening_port | default(5349) }}
+external-ip={{ instance.external_ip }}
+listening-ip={{ instance.listening_ip }}
+{% if instance.fingerprint | default(false) %}
+fingerprint
+{% endif %}
+use-auth-secret
+{% if instance.keep_address_family | default(false) %}
+keep-address-family
+{% endif %}
+static-auth-secret={{ instance.static_auth_secret }}
+realm={{ instance.realm }}
+{% if instance.user_quota is defined %}
+user-quota={{ instance.user_quota }}
+total-quota={{ instance.total_quota }}
+{% endif %}
+no-tcp-relay
+syslog
+no-multicast-peers
+no-cli
+{% if instance.no_loopback_peers | default(false) %}
+no-loopback-peers
+{% endif %}
+
+cert=/etc/ssl/certs/{{ common.cert_domain }}.crt
+pkey=/etc/ssl/private/{{ common.cert_domain }}.key
+
+no-tlsv1
+no-tlsv1_1
+no-sslv2
+no-sslv3
+cipher-list="ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305"
+{% if instance.dh2066 | default(false) %}
+dh2066
+{% endif %}
+
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.0.0.0-192.0.0.255
+denied-peer-ip=192.0.2.0-192.0.2.255
+denied-peer-ip=192.88.99.0-192.88.99.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=198.18.0.0-198.19.255.255
+denied-peer-ip=198.51.100.0-198.51.100.255
+denied-peer-ip=203.0.113.0-203.0.113.255
+denied-peer-ip=240.0.0.0-255.255.255.255
+denied-peer-ip=::1
+denied-peer-ip=64:ff9b::-64:ff9b::ffff:ffff
+denied-peer-ip=::ffff:0.0.0.0-::ffff:255.255.255.255
+denied-peer-ip=100::-100::ffff:ffff:ffff:ffff
+denied-peer-ip=2001::-2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=2002::-2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
