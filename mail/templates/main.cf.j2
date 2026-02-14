@@ -1,0 +1,87 @@
+# Managed by infra repo — {{ instance_name }}
+compatibility_level = 3.9
+
+queue_directory = /var/spool/postfix
+command_directory = /usr/bin
+daemon_directory = /usr/lib/postfix/bin
+data_directory = /var/lib/postfix
+mail_owner = postfix
+meta_directory = /etc/postfix
+shlib_directory = /usr/lib/postfix
+
+myhostname = {{ instance.hostname }}
+mydomain = {{ instance.hostname }}
+mydestination = localhost
+inet_interfaces = all
+inet_protocols = all
+unknown_local_recipient_reject_code = 550
+
+home_mailbox = /mail/
+alias_maps = lmdb:/etc/postfix/aliases
+alias_database = $alias_maps
+
+# Virtual mailbox
+virtual_mailbox_domains = {{ instance.hostname }}
+virtual_mailbox_base = /mail
+virtual_mailbox_maps = lmdb:/etc/postfix/vmailbox
+virtual_minimum_uid = 50
+virtual_uid_maps = static:73
+virtual_gid_maps = static:73
+virtual_alias_maps = lmdb:/etc/postfix/virtual
+mailbox_size_limit = 0
+virtual_mailbox_limit = 0
+
+# SASL (Dovecot)
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = /var/spool/postfix/private/auth
+smtpd_sasl_security_options = noanonymous
+smtpd_sasl_local_domain = $myhostname
+broken_sasl_auth_clients = no
+
+smtpd_recipient_restrictions = permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
+
+# TLS inbound
+smtpd_tls_security_level = may
+smtpd_tls_auth_only = yes
+smtpd_tls_cert_file = /etc/ssl/certs/{{ common.cert_domain }}.crt
+smtpd_tls_key_file = /etc/ssl/private/{{ common.cert_domain }}.key
+smtpd_tls_loglevel = 1
+smtpd_tls_mandatory_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtpd_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtpd_tls_mandatory_ciphers = medium
+
+# TLS outbound
+smtp_tls_security_level = may
+smtp_tls_loglevel = 1
+smtp_tls_mandatory_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtp_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+
+# TLS LMTP
+lmtp_tls_mandatory_protocols = !SSLv2, !TLSv1, !TLSv1.1
+lmtp_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+
+# Ciphers
+tls_medium_cipherlist = ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305
+tls_preempt_cipherlist = yes
+
+# DKIM (OpenDKIM milter)
+milter_default_action = accept
+milter_protocol = 2
+smtpd_milters = unix:/run/opendkim/opendkim.sock
+non_smtpd_milters = unix:/run/opendkim/opendkim.sock
+
+# Paths
+sendmail_path = /usr/bin/sendmail
+newaliases_path = /usr/bin/newaliases
+mailq_path = /usr/bin/mailq
+setgid_group = postdrop
+html_directory = no
+manpage_directory = /usr/share/man
+sample_directory = /etc/postfix
+readme_directory = /usr/share/doc/postfix
+
+debug_peer_level = 2
+debugger_command =
+	 PATH=/bin:/usr/bin:/usr/local/bin:/usr/X11R6/bin
+	 ddd $daemon_directory/$process_name $process_id & sleep 5
