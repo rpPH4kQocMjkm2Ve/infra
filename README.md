@@ -14,6 +14,7 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
 | `coturn` | TURN/STUN relay servers for Synapse and Jitsi (native, no container) |
+| `mail` | Postfix + Dovecot + OpenDKIM ⚠️ legacy, see [note](#mail-legacy) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 
 ## Structure
@@ -56,6 +57,10 @@ infra/
 │   ├── templates/
 │   └── secrets/
 ├── coturn/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
+├── mail/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
@@ -105,7 +110,7 @@ python deploy.py renew               # issue if <30 days + distribute
 
 Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
 
-The same wildcard certificate is used by coturn instances for TURNS — they read directly from `/etc/ssl/` on the host.
+The same wildcard certificate is used by coturn, mail, and other native services — they read directly from `/etc/ssl/` on the host.
 
 Auto-renewal via cron:
 
@@ -117,13 +122,13 @@ Auto-renewal via cron:
 
 Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, coturn, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, coturn, mail, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
 
 ## Containerized vs native
 
 Most services run as **Podman containers** managed via Quadlet units.
 
-**coturn** runs as a **native systemd service** — it needs host networking with specific IP binds and a large UDP port range, and there's no benefit to containerizing it. Only the config file (`turnserver.conf`) is deployed.
+**coturn** and **mail** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, and tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
 
 ## Prerequisites
 
@@ -152,6 +157,7 @@ sops element/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
 sops jitsi/secrets/secrets.enc.yaml
 sops coturn/secrets/secrets.enc.yaml
+sops mail/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
 ```
 
@@ -252,7 +258,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, coturn, sing-box)
+### Multi-instance (traefik, metrics, coturn, mail, sing-box)
 
 ```bash
 cd traefik/
@@ -306,9 +312,11 @@ Service configs go to `/opt/podman/<service>/` and are mounted into containers v
 
 Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
-Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn).
+Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn, mail).
 
-coturn config goes to `/etc/turnserver/turnserver.conf` — no container, no Quadlet, just the config for the native systemd service.
+Native service configs:
+- coturn → `/etc/turnserver/turnserver.conf`
+- mail → `/etc/postfix/`, `/etc/dovecot/`, `/etc/opendkim/`
 
 ## Remote server layout
 
@@ -319,6 +327,26 @@ coturn config goes to `/etc/turnserver/turnserver.conf` — no container, no Qua
 
 /etc/turnserver/
 └── turnserver.conf
+
+/etc/postfix/
+├── main.cf
+├── master.cf
+├── vmailbox
+└── dkim/
+    ├── keytable
+    ├── signingtable
+    └── mail.private
+
+/etc/dovecot/
+├── dovecot.conf
+└── virtual-users
+
+/etc/opendkim/
+└── opendkim.conf
+
+/mail/
+└── example.com/
+    └── user/
 
 /opt/podman/
 ├── traefik/
@@ -406,3 +434,9 @@ Controlled by `behind_cf` flag in service secrets.
 Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx.
 
 Jitsi uses a **Quadlet Network** instead — containers need DNS-based discovery (`NetworkAlias=xmpp.meet.jitsi` for prosody), which doesn't work inside a pod since pods share a single network namespace and bypass container DNS.
+
+## mail (legacy)
+
+⚠️ The `mail` service (Postfix + Dovecot + OpenDKIM) is **legacy**. It is inactive on most servers and will be decommissioned in the future. The module exists to manage the remaining active instances until migration is complete.
+
+Deploys native Postfix, Dovecot, and OpenDKIM configs — no containers. Uses the same wildcard certificate from `/etc/ssl/`. Mailboxes are stored in `/mail/`.
