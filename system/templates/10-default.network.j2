@@ -1,0 +1,20 @@
+# Managed by infra repo — {{ instance_name }}
+{% set stack = instance.network_stack | default(common.network_stack) %}
+[Match]
+Name=e*
+
+[Link]
+MTUBytes=1500
+
+[Network]
+DHCP=ipv4
+{% if stack == 'dual' %}
+LinkLocalAddressing=ipv6
+IPv6AcceptRA=false
+{% else %}
+LinkLocalAddressing=no
+{% endif %}
+
+[DHCP]
+RouteMetric=100
+UseMTU=true

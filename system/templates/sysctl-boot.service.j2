@@ -1,0 +1,7 @@
+# Managed by infra repo
+[Unit]
+Description=sysctl apply
+
+[Service]
+Type=oneshot
+ExecStart=sysctl -p

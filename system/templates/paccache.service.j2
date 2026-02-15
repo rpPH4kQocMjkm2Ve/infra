@@ -1,0 +1,7 @@
+# Managed by infra repo
+[Unit]
+Description=pacman cache cleaner
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "paccache -r"

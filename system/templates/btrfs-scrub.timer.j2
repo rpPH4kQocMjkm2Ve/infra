@@ -1,0 +1,9 @@
+# Managed by infra repo
+[Unit]
+Description=btrfs scrub timer
+
+[Timer]
+OnCalendar=Sat, 12:00:00
+
+[Install]
+WantedBy=timers.target

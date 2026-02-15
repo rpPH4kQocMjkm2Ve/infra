@@ -1,0 +1,9 @@
+# Managed by infra repo
+[Unit]
+Description=sysctl apply on boot
+
+[Timer]
+OnBootSec=1s
+
+[Install]
+WantedBy=timers.target
