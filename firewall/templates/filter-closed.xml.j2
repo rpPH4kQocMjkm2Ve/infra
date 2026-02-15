@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>filter-closed</short>
+  <description>Managed by infra repo — {{ instance_name }}</description>
+{% if instance.filter_zone | default(false) %}
+  <port protocol="tcp" port="{{ instance.ssh_port | default(common.ssh_port) }}"/>
+  <protocol value="icmp"/>
+  <protocol value="ipv6-icmp"/>
+  {% for ip in common.trusted_ips %}
+  <source address="{{ ip }}"/>
+  {% endfor %}
+{% endif %}
+  <forward/>
+</zone>

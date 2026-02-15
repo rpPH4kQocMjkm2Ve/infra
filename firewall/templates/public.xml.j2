@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>Public</short>
+  <description>Managed by infra repo — {{ instance_name }}</description>
+  <service name="dhcpv6-client"/>
+{% if instance.ssh_on_public | default(false) %}
+  <service name="ssh"/>
+{% endif %}
+{% if instance.web | default(false) %}
+  <service name="http"/>
+  <service name="https"/>
+  <service name="http3"/>
+{% endif %}
+{% if instance.smtp | default(false) %}
+  <service name="smtp"/>
+{% endif %}
+{% if instance.turn | default(false) %}
+  <service name="stun"/>
+  <service name="stuns"/>
+  <service name="turn"/>
+  <service name="turns"/>
+  <port protocol="udp" port="49152-57952"/>
+{% endif %}
+{% if instance.wg_endpoint | default(false) %}
+  <port protocol="udp" port="{{ common.wg_port }}"/>
+{% endif %}
+  <forward/>
+</zone>
