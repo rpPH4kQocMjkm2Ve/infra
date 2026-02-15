@@ -1,0 +1,7 @@
+# Managed by infra repo
+[Unit]
+Description=btrfs scrubber
+
+[Service]
+Type=oneshot
+ExecStart=btrfs scrub start /

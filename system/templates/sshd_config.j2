@@ -1,0 +1,49 @@
+# Managed by infra repo — {{ instance_name }}
+HostKeyAlgorithms rsa-sha2-512,rsa-sha2-256,ssh-ed25519
+CASignatureAlgorithms rsa-sha2-512,rsa-sha2-256,ssh-ed25519
+HostbasedAcceptedKeyTypes rsa-sha2-512,rsa-sha2-256,ssh-ed25519
+PubkeyAcceptedKeyTypes rsa-sha2-512,rsa-sha2-256,ssh-ed25519
+
+KexAlgorithms curve25519-sha256@libssh.org,curve25519-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,sntrup761x25519-sha512@openssh.com,diffie-hellman-group-exchange-sha256
+Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+
+LogLevel VERBOSE
+
+AllowUsers {{ common.ssh_allowed_users | join(' ') }}
+
+Protocol 2
+X11Forwarding no
+AllowTcpForwarding no
+AllowStreamLocalForwarding no
+GatewayPorts no
+PermitTunnel no
+PermitEmptyPasswords no
+IgnoreRhosts yes
+UseDNS no
+Compression no
+AllowAgentForwarding no
+HostbasedAuthentication no
+
+Port {{ instance.ssh_port | default(common.ssh_port) }}
+
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+PermitRootLogin prohibit-password
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+PrintMotd no
+
+Subsystem sftp /usr/lib/ssh/sftp-server
+
+{% for user in common.ssh_otp_users %}
+Match User {{ user }}
+    ChallengeResponseAuthentication yes
+    KbdInteractiveAuthentication yes
+    AuthenticationMethods keyboard-interactive
+
+{% endfor %}
