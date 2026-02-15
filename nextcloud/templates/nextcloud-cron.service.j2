@@ -1,0 +1,8 @@
+# Managed by infra repo
+[Unit]
+Description=Nextcloud cron.php
+
+[Service]
+Type=oneshot
+KillMode=mixed
+ExecStart=/usr/bin/podman exec -u www-data nextcloud_app_1 php -f /var/www/html/cron.php

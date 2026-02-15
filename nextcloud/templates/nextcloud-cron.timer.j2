@@ -1,0 +1,10 @@
+# Managed by infra repo
+[Unit]
+Description=Nextcloud cron.php
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
