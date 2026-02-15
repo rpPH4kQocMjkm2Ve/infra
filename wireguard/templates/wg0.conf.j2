@@ -1,0 +1,18 @@
+# Managed by infra repo — {{ instance_name }}
+[Interface]
+Address = {{ instance.address }}
+ListenPort = {{ instance.listen_port | default(common.listen_port) }}
+PrivateKey = {{ instance.private_key }}
+
+{% for peer in instance.peers %}
+[Peer] # {{ peer.name }}
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.allowed_ips | join(', ') }}
+{% if peer.endpoint is defined %}
+Endpoint = {{ peer.endpoint }}
+{% endif %}
+{% if peer.keepalive is defined %}
+PersistentKeepalive = {{ peer.keepalive }}
+{% endif %}
+
+{% endfor %}
