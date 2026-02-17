@@ -13,7 +13,7 @@ Environment=TZ="Europe/Moscow"
 
 Label=traefik.enable=true
 Label=traefik.tcp.routers.sing-box_vless.entryPoints=https
-Label=traefik.tcp.routers.sing-box_vless.rule=HostSNI(`www.google.com`)
+Label=traefik.tcp.routers.sing-box_vless.rule=HostSNI(`{{ reality.server_name }}`)
 Label=traefik.tcp.routers.sing-box_vless.service=sing-box_vless
 Label=traefik.tcp.routers.sing-box_vless.tls=true
 Label=traefik.tcp.services.sing-box_vless.loadbalancer.server.port=8443

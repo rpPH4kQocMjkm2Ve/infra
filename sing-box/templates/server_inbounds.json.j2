@@ -15,11 +15,11 @@
       ],
       "tls": {
         "enabled": true,
-        "server_name": "www.google.com",
+        "server_name": "{{ reality.server_name }}",
         "reality": {
           "enabled": true,
           "handshake": {
-            "server": "www.google.com",
+            "server": "{{ reality.server_name }}",
             "server_port": 443
           },
           "private_key": "{{ keys.vless }}",
