@@ -51,9 +51,8 @@
       "tag": "direct",
       "routing_mark": {{ router.routing_mark }}
     },
-{# Balancers for different transport types #}
 {% set balancers = [
-    ('vless-balancer-ipv4', 'vless-ipv4'),
+    ('anytls-balancer', 'anytls'),
     ('vless-balancer-grpc', 'vless-grpc'),
     ('vless-balancer-ws', 'vless-ws'),
     ('vless-balancer-http-upgrade', 'vless-http-upgrade')
@@ -94,7 +93,7 @@
       {"port": [123], "outbound": "direct"},
       {
         "rule_set": ["main", "youtube"],
-        "outbound": "vless-balancer-ipv4"
+        "outbound": "anytls-balancer"
       }
     ]
   },

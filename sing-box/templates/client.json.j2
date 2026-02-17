@@ -29,21 +29,20 @@
   "outbounds": [
     {
       "type": "urltest",
-      "tag": "vless-balancer",
+      "tag": "anytls-balancer",
       "outbounds": [
-        "vless-1",
-        "vless-2"
+{% for name, inst in instances.items() %}
+        "anytls-{{ loop.index }}"{{ "," if not loop.last else "" }}
+{% endfor %}
       ]
     },
-{# Generate outbound for each instance #}
 {% for name, inst in instances.items() %}
     {
-      "type": "vless",
-      "tag": "vless-{{ loop.index }}",
+      "type": "anytls",
+      "tag": "anytls-{{ loop.index }}",
       "server": "{{ inst.address }}",
       "server_port": 443,
-      "uuid": "{{ current_user.uuid }}",
-      "flow": "{{ current_user.flow }}",
+      "password": "{{ current_user.password }}",
       "tls": {
         "enabled": true,
         "server_name": "www.google.com",
@@ -56,11 +55,7 @@
           "public_key": "{{ public_key }}",
           "short_id": "{{ current_user.short_id }}"
         }
-      },
-      "multiplex": {
-        "max_connections": 8
-      },
-      "packet_encoding": "xudp"
+      }
     },
 {% endfor %}
     {
@@ -73,7 +68,7 @@
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
       {"protocol": "bittorrent", "action": "reject"},
-      {"rule_set": "youtube", "outbound": "vless-balancer"},
+      {"rule_set": "youtube", "outbound": "anytls-balancer"},
       {
         "rule_set": [
 {% for s in srs.user %}
@@ -89,7 +84,6 @@
       {"ip_is_private": true, "outbound": "direct"}
     ],
     "rule_set": [
-{# User-defined rule sets #}
 {% for s in srs.user %}
       {
         "type": "remote",
@@ -100,7 +94,6 @@
         "update_interval": "1h0m0s"
       },
 {% endfor %}
-{# Static rule sets #}
 {% set static_rules = [
     ('category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
     ('geosite-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs'),

@@ -1,0 +1,29 @@
+{# templates/router_anytls.json.j2 #}
+{
+  "outbounds": [
+{% for name, inst in instances.items() %}
+    {
+      "type": "anytls",
+      "tag": "anytls-{{ loop.index }}",
+      "server": "{{ inst.address }}",
+      "server_port": 443,
+      "password": "{{ current_user.password }}",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.google.com",
+        "insecure": false,
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "{{ public_key }}",
+          "short_id": "{{ current_user.short_id }}"
+        }
+      },
+      "routing_mark": {{ router.routing_mark }}
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+  ]
+}

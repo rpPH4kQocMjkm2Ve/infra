@@ -268,8 +268,7 @@ def generate_router_configs(secrets, env, uploader=None):
         print("⚠ No router users found, skipping", file=sys.stderr)
         return {}
 
-    transports = [
-        ('vision', 'vless-ipv4', 'sing-box_vless_v4.json'),
+    vless_transports = [
         ('grpc', 'vless-grpc', 'sing-box_vless_grpc.json'),
         ('ws', 'vless-ws', 'sing-box_vless_ws.json'),
         ('http-upgrade', 'vless-http-upgrade', 'sing-box_vless_httpupgrade.json'),
@@ -285,6 +284,7 @@ def generate_router_configs(secrets, env, uploader=None):
         router_urls = {}
         token = get_user_token(router_user) if uploader else None
 
+        # Main config
         main_config = render_json(env, 'router_main.json.j2', context)
         (router_dir / 'sing-box.json').write_text(main_config)
         print(f"✓ Created: {router_dir / 'sing-box.json'}")
@@ -294,7 +294,19 @@ def generate_router_configs(secrets, env, uploader=None):
             router_urls['main'] = url
             print(f"  ↳ URL: {url}")
 
-        for transport, tag_prefix, filename in transports:
+        # AnyTLS outbounds
+        anytls_filename = 'sing-box_anytls.json'
+        anytls_config = render_json(env, 'router_anytls.json.j2', context)
+        (router_dir / anytls_filename).write_text(anytls_config)
+        print(f"✓ Created: {router_dir / anytls_filename}")
+
+        if uploader and token:
+            url = uploader.upload(f"{token}/{anytls_filename}", anytls_config)
+            router_urls['anytls'] = url
+            print(f"  ↳ URL: {url}")
+
+        # VLESS transports (grpc, ws, http-upgrade)
+        for transport, tag_prefix, filename in vless_transports:
             config = render_json(env, 'router_vless.json.j2', {
                 **context, 'transport': transport, 'tag_prefix': tag_prefix
             })

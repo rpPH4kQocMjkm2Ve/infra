@@ -1,16 +1,15 @@
 {
   "inbounds": [
     {
-      "type": "vless",
-      "tag": "vless_tls",
+      "type": "anytls",
+      "tag": "anytls_tls",
       "listen": "::",
       "listen_port": 8443,
       "users": [
 {% for u in users %}
         {
           "name": "{{ u.name }}",
-          "uuid": "{{ u.uuid }}",
-          "flow": "xtls-rprx-vision"
+          "password": "{{ u.password }}"
         }{{ "," if not loop.last else "" }}
 {% endfor %}
       ],
@@ -30,9 +29,6 @@
 {% endfor %}
           ]
         }
-      },
-      "multiplex": {
-        "enabled": true
       }
     },
     {
