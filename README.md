@@ -18,7 +18,6 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
 | `coturn` | TURN/STUN relay servers for Synapse and Jitsi (native, no container) |
 | `wireguard` | WireGuard mesh + client tunnels (native, no container) |
-| `mail` | Postfix + Dovecot + OpenDKIM ⚠️ legacy, see [note](#mail-legacy) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 | `router` | OpenWrt router configs: nftables tproxy, network, wireless, firewall, dhcp — distributed via KV |
 
@@ -79,10 +78,6 @@ infra/
 │   ├── templates/
 │   └── secrets/
 ├── wireguard/
-│   ├── deploy.py
-│   ├── templates/
-│   └── secrets/
-├── mail/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
@@ -163,7 +158,7 @@ python deploy.py renew                 # issue if <30 days + distribute
 
 Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
 
-The same wildcard certificate is used by coturn, mail, and other native services — they read directly from `/etc/ssl/` on the host.
+The same wildcard certificate is used by coturn, and other native services — they read directly from `/etc/ssl/` on the host.
 
 Auto-renewal via cron:
 
@@ -175,7 +170,7 @@ Auto-renewal via cron:
 
 Services deployed to **one server** (synapse, nextcloud, element, jitsi, backup) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, mail, sing-box, system, firewall) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, sing-box, system, firewall) have `instances:` with a `host:` reference per instance and support `--all`.
 
 **Router** uses a different model — multiple routers defined under `routers:` in secrets, configs delivered via KV instead of SSH.
 
@@ -183,7 +178,7 @@ Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, 
 
 Most services run as **Podman containers** managed via Quadlet units.
 
-**coturn**, **wireguard**, **mail**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
+**coturn**, **wireguard**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay). Only config files are deployed, no Quadlet units.
 
 **Router** configs are native OpenWrt UCI/nftables files — no containers involved.
 
@@ -215,7 +210,6 @@ sops metrics/secrets/secrets.enc.yaml
 sops jitsi/secrets/secrets.enc.yaml
 sops coturn/secrets/secrets.enc.yaml
 sops wireguard/secrets/secrets.enc.yaml
-sops mail/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
 sops system/secrets/secrets.enc.yaml
 sops firewall/secrets/secrets.enc.yaml
@@ -321,9 +315,7 @@ instances:
     wireguard: true
     wg_endpoint: true
     web: true
-    smtp: false
     turn: true
-    mail_on_wg: false
   instance2:
     host: server2
     filter_zone: true
@@ -331,9 +323,7 @@ instances:
     wireguard: true
     wg_endpoint: true
     web: true
-    smtp: true
     turn: true
-    mail_on_wg: true
 ```
 
 ### backup secrets
@@ -485,7 +475,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, coturn, wireguard, mail, sing-box, system, firewall)
+### Multi-instance (traefik, metrics, coturn, wireguard, sing-box, system, firewall)
 
 ```bash
 cd firewall/
@@ -561,7 +551,7 @@ Service configs go to `/opt/podman/<service>/` and are mounted into containers v
 
 Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
-Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn, mail).
+Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn).
 
 Native service configs:
 - system → `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
@@ -569,7 +559,6 @@ Native service configs:
 - backup → `/root/scripts/backup.sh`, systemd service + timer
 - coturn → `/etc/turnserver/turnserver.conf`
 - wireguard → `/etc/wireguard/wg0.conf`
-- mail → `/etc/postfix/`, `/etc/dovecot/`, `/etc/opendkim/`
 
 Router configs (via KV):
 - nftables → `/etc/nftables/nft-ipv6`
@@ -618,28 +607,8 @@ Router configs (via KV):
 /etc/wireguard/
 └── wg0.conf
 
-/etc/postfix/
-├── main.cf
-├── master.cf
-├── vmailbox
-└── dkim/
-    ├── keytable
-    ├── signingtable
-    └── mail.private
-
-/etc/dovecot/
-├── dovecot.conf
-└── virtual-users
-
-/etc/opendkim/
-└── opendkim.conf
-
 /root/scripts/
 └── backup.sh
-
-/mail/
-└── example.com/
-    └── user/
 
 /opt/podman/
 ├── traefik/
@@ -758,9 +727,3 @@ Controlled by `behind_cf` flag in service secrets.
 Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx.
 
 Jitsi uses a **Quadlet Network** instead — containers need DNS-based discovery (`NetworkAlias=xmpp.meet.jitsi` for prosody), which doesn't work inside a pod since pods share a single network namespace and bypass container DNS.
-
-## mail (legacy)
-
-⚠️ The `mail` service (Postfix + Dovecot + OpenDKIM) is **legacy**. It is inactive on most servers and will be decommissioned in the future. The module exists to manage the remaining active instances until migration is complete.
-
-Deploys native Postfix, Dovecot, and OpenDKIM configs — no containers. Uses the same wildcard certificate from `/etc/ssl/`. Mailboxes are stored in `/mail/`.

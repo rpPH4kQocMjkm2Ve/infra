@@ -7,13 +7,6 @@
   <port protocol="tcp" port="{{ instance.ssh_port | default(common.ssh_port) }}"/>
   <protocol value="icmp"/>
   <protocol value="ipv6-icmp"/>
-  {% if instance.mail_on_wg | default(false) %}
-  <port protocol="tcp" port="143"/>
-  <port protocol="tcp" port="110"/>
-  <port protocol="tcp" port="465"/>
-  <port protocol="tcp" port="993"/>
-  <port protocol="tcp" port="995"/>
-  {% endif %}
 {% endif %}
   <forward/>
 </zone>

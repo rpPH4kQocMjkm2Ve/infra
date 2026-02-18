@@ -11,9 +11,6 @@
   <service name="https"/>
   <service name="http3"/>
 {% endif %}
-{% if instance.smtp | default(false) %}
-  <service name="smtp"/>
-{% endif %}
 {% if instance.turn | default(false) %}
   <service name="stun"/>
   <service name="stuns"/>
