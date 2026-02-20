@@ -10,6 +10,18 @@
         "type": "https",
         "tag": "cloudflare",
         "server": "1.1.1.1"
+      },
+      {
+        "type": "https",
+        "tag": "google",
+        "server": "8.8.8.8"
+      }
+    ],
+    "rules": [
+      {
+        "domain_suffix": "proton.me",
+	"rule_set": "category-gov-ru",
+	"server": "google"
       }
     ]
   },
@@ -68,6 +80,7 @@
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
       {"protocol": "bittorrent", "action": "reject"},
+      {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "outbound": "direct"},
       {"rule_set": "youtube", "outbound": "anytls-balancer"},
       {
         "rule_set": [

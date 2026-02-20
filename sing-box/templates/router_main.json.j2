@@ -10,9 +10,14 @@
     "strategy": "prefer_ipv6",
     "servers": [
       {
-        "tag": "dns-cloudflare",
+        "tag": "cloudflare",
         "type": "https",
         "server": "1.1.1.1"
+      },
+      {
+        "tag": "google",
+        "type": "https",
+        "server": "8.8.8.8"
       },
       {
         "tag": "local",
@@ -25,9 +30,18 @@
         "server": "local"
       },
       {
+        "domain_suffix": "proton.me",
+        "server": "google",
+	"strategy": "ipv4_only"
+      },
+      {
         "rule_set": ["router", "youtube", "telegram"],
-        "server": "dns-cloudflare",
+        "server": "cloudflare",
         "strategy": "ipv4_only"
+      },
+      {
+        "rule_set": "category-gov-ru",
+        "server": "google"
       }
     ]
   },
@@ -70,7 +84,7 @@
 {% endfor %}
   ],
   "route": {
-    "default_domain_resolver": "dns-cloudflare",
+    "default_domain_resolver": "cloudflare",
     "rule_set": [
       {
         "type": "remote",
@@ -80,6 +94,7 @@
         "url": "{{ srs.router.link }}"
       },
 {% set static_rules = [
+    ('category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
     ('telegram', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/refs/heads/rule-set/geosite-telegram.srs'),
     ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs')
 ] %}
