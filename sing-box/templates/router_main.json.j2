@@ -25,7 +25,7 @@
         "server": "local"
       },
       {
-        "rule_set": ["router", "youtube"],
+        "rule_set": ["router", "youtube", "telegram"],
         "server": "dns-cloudflare",
         "strategy": "ipv4_only"
       }
@@ -79,20 +79,26 @@
         "update_interval": "10m",
         "url": "{{ srs.router.link }}"
       },
+{% set static_rules = [
+    ('telegram', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/refs/heads/rule-set/geosite-telegram.srs'),
+    ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs')
+] %}
+{% for tag, url in static_rules %}
       {
         "type": "remote",
-        "tag": "youtube",
+        "tag": "{{ tag }}",
         "format": "binary",
         "update_interval": "1h",
-        "url": "https://github.com/SagerNet/sing-geosite/raw/refs/heads/rule-set/geosite-youtube.srs"
-      }
+        "url": "{{ url }}"
+      }{{ "," if not loop.last else "" }}
+{% endfor %}
     ],
     "rules": [
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
       {"port": [123], "outbound": "direct"},
       {
-        "rule_set": ["router", "youtube"],
+        "rule_set": ["router", "youtube", "telegram"],
         "outbound": "anytls-balancer"
       }
     ]
