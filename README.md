@@ -727,3 +727,7 @@ Controlled by `behind_cf` flag in service secrets.
 Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx.
 
 Jitsi uses a **Quadlet Network** instead — containers need DNS-based discovery (`NetworkAlias=xmpp.meet.jitsi` for prosody), which doesn't work inside a pod since pods share a single network namespace and bypass container DNS.
+
+## License
+
+AGPL-3.0-or-later
