@@ -112,7 +112,7 @@ Each service has:
 3. Renders Jinja2 templates
 4. Syncs files to remote via rsync (checksum-based, idempotent)
 5. Applies file ownership/permissions if specified (`owner`, `mode` in file config)
-6. Restarts systemd units only if something changed
+6. Restarts systemd units only if something changed (restart command can be a static string or a callable for dynamic commands)
 
 ### Router/client config flow
 
@@ -138,6 +138,24 @@ Files in the `files` list support an optional third element — a dict with `own
 ```
 
 Applied after rsync via `chown`/`chmod` over SSH. Shown in `render` and `diff` output.
+
+## Restart command
+
+`restart_cmd` controls what runs after files change. It can be a **string** or a **callable**:
+
+```python
+# Static — same command for all instances
+'restart_cmd': 'systemctl daemon-reload && systemctl restart myservice',
+
+# Dynamic — receives (secrets, instance_name), returns command string
+'restart_cmd': lambda secrets, instance_name: (
+    f"podman pull {secrets['instances'][instance_name]['image']}"
+    f" && systemctl daemon-reload"
+    f" && systemctl restart myservice"
+),
+```
+
+Useful when the restart command depends on per-instance secrets (e.g. pulling a specific container image before restarting).
 
 ## Certificates
 
@@ -706,7 +724,10 @@ deployer = ServiceDeployer({
         ('secret.conf.j2', '/etc/myservice/secret.conf', {'owner': 'root:root', 'mode': '600'}),
     ],
     'setup_dirs': ['/opt/podman/myservice'],
+    # string — same command for every instance:
     'restart_cmd': 'systemctl daemon-reload && systemctl restart myservice',
+    # or callable(secrets, instance_name) — dynamic command per instance:
+    # 'restart_cmd': lambda secrets, instance_name: f"podman pull {secrets['instances'][instance_name]['image']} && systemctl restart myservice",
 })
 
 if __name__ == '__main__':
