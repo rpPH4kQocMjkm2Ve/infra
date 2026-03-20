@@ -151,7 +151,11 @@ class ServiceDeployer:
             hook(secrets, target, port)
 
         if not no_restart and changed and self.restart_cmd:
-            ssh_run(target, self.restart_cmd, port)
+            if callable(self.restart_cmd):
+                cmd = self.restart_cmd(secrets, instance_name)
+            else:
+                cmd = self.restart_cmd
+            ssh_run(target, cmd, port)
             print(f"  \033[0;32m✓\033[0m restarted")
         elif not changed:
             print(f"  \033[0;32m✓\033[0m no changes")

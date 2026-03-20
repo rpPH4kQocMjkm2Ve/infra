@@ -582,3 +582,24 @@ class TestServiceDeployer:
         hook.assert_called_once()
         # hook receives (secrets, target, port)
         assert hook.call_args[0][0] is secrets
+
+    @patch("lib.deploy.rsync_file", return_value=True)
+    @patch("lib.deploy._apply_opts")
+    @patch("lib.deploy.ssh_run")
+    def test_deploy_callable_restart_cmd(self, mock_ssh, mock_opts, mock_rsync, tmp_path, capsys):
+        (tmp_path / "t.j2").write_text("content\n")
+        d = self._make_deployer(
+            tmp_path,
+            files=[("t.j2", "/opt/conf")],
+            multi_instance=True,
+            restart_cmd=lambda secrets, instance_name: f"podman pull {secrets['instances'][instance_name]['image']} && systemctl restart svc",
+        )
+        from lib.jinja import create_jinja_env
+        hosts = {"srv1": {"address": "s.example.com"}}
+        secrets = {
+            "instances": {"i1": {"host": "srv1", "image": "ghcr.io/app:latest"}},
+        }
+        d.deploy(hosts, secrets, create_jinja_env(tmp_path), instance_name="i1")
+        restart_calls = [c for c in mock_ssh.call_args_list if "podman pull" in str(c)]
+        assert len(restart_calls) == 1
+        assert "ghcr.io/app:latest" in str(restart_calls[0])
