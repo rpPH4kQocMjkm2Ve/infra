@@ -24,6 +24,16 @@ def build_context(secrets, instance_name):
     }
 
 
+def restart_cmd(secrets, instance_name):
+    image = secrets['instances'][instance_name]['image']
+    return (
+        f'podman pull {image}'
+        f' && systemctl daemon-reload'
+        f' && systemctl reset-failed sing-box-pod sing-box 2>/dev/null;'
+        f' systemctl restart sing-box-pod'
+    )
+
+
 deployer = ServiceDeployer({
     'templates_dir': BASE / 'templates',
     'secrets_file': BASE / 'secrets' / 'secrets.enc.yaml',
@@ -38,7 +48,7 @@ deployer = ServiceDeployer({
         ('server_pod.j2',           '/etc/containers/systemd/sing-box.pod'),
     ],
     'setup_dirs': [f'{REMOTE_BASE}/sing-box_settings'],
-    'restart_cmd': 'systemctl daemon-reload && systemctl restart sing-box',
+    'restart_cmd': restart_cmd,
 })
 
 if __name__ == '__main__':
