@@ -43,6 +43,7 @@ def get_user_by_name(secrets, name):
         None
     )
 
+
 def get_user_token(user):
     token = user.get('token')
     if not token:
@@ -51,6 +52,79 @@ def get_user_token(user):
               f"Add to secrets.yaml:", file=sys.stderr)
         print(f"    token: \"{token}\"", file=sys.stderr)
     return token
+
+
+def filter_users(secrets, user_names=None, user_type=None):
+    """Return users filtered by names and/or type.
+
+    Args:
+        secrets: decrypted secrets dict
+        user_names: list of usernames to include, or None for all
+        user_type: 'client' or 'router', or None for any
+    """
+    users = secrets.get('users', [])
+    if user_names:
+        unknown = [n for n in user_names if not get_user_by_name(secrets, n)]
+        if unknown:
+            all_names = [u['name'] for u in users]
+            print(f"Unknown user(s): {', '.join(unknown)}. "
+                  f"Available: {', '.join(all_names)}", file=sys.stderr)
+            sys.exit(1)
+        users = [u for u in users if u['name'] in user_names]
+    if user_type:
+        users = [u for u in users if u.get('type', 'client') == user_type]
+    return users
+
+
+# --- URLs persistence with merge ---
+
+def load_existing_urls():
+    """Load previously saved urls.json, return empty structure if missing."""
+    urls_file = OUTPUT_DIR / 'urls.json'
+    if urls_file.exists():
+        try:
+            return json.loads(urls_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {'clients': {}, 'routers': {}}
+
+
+def save_urls(urls):
+    """Merge new URLs into existing urls.json and regenerate urls.md."""
+    if not urls.get('clients') and not urls.get('routers'):
+        return
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Merge with existing data so single-user uploads don't erase others
+    existing = load_existing_urls()
+    existing.setdefault('clients', {}).update(urls.get('clients', {}))
+    existing.setdefault('routers', {}).update(urls.get('routers', {}))
+
+    urls_file = OUTPUT_DIR / 'urls.json'
+    urls_file.write_text(json.dumps(existing, indent=2, ensure_ascii=False))
+    print(f"\n📋 URLs saved to: {urls_file}")
+
+    # Regenerate full .md from merged data
+    readme_file = OUTPUT_DIR / 'urls.md'
+    with open(readme_file, 'w') as f:
+        f.write("# Config URLs\n\n")
+        f.write(f"Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.write("⚠️ **Keep these URLs private!**\n\n")
+        if existing.get('clients'):
+            f.write("## Clients\n\n")
+            for name in sorted(existing['clients']):
+                url = existing['clients'][name]
+                f.write(f"### {name}\n```\n{url}\n```\n\n")
+        if existing.get('routers'):
+            f.write("## Routers\n\n")
+            for router_name in sorted(existing['routers']):
+                router_urls = existing['routers'][router_name]
+                f.write(f"### {router_name}\n\n")
+                for config_type in sorted(router_urls):
+                    url = router_urls[config_type]
+                    f.write(f"**{config_type}:**\n```\n{url}\n```\n\n")
+    print(f"📋 URLs readme: {readme_file}")
 
 
 # --- Token generation ---
@@ -115,18 +189,18 @@ def cmd_revoke(secrets, args):
         print("Cloudflare not configured in secrets", file=sys.stderr)
         sys.exit(1)
 
-    user = get_user_by_name(secrets, args.revoke)
+    user = get_user_by_name(secrets, args.username)
     if not user:
-        print(f"User '{args.revoke}' not found in secrets", file=sys.stderr)
+        print(f"User '{args.username}' not found in secrets", file=sys.stderr)
         sys.exit(1)
 
     token = user.get('token')
     if not token:
-        print(f"User '{args.revoke}' has no token", file=sys.stderr)
+        print(f"User '{args.username}' has no token", file=sys.stderr)
         sys.exit(1)
 
     if not args.yes:
-        print(f"This will delete ALL configs for '{args.revoke}' from KV.")
+        print(f"This will delete ALL configs for '{args.username}' from KV.")
         if input("Continue? [y/N] ").strip().lower() != 'y':
             print("Aborted")
             return
@@ -135,9 +209,9 @@ def cmd_revoke(secrets, args):
     if deleted:
         for key in deleted:
             print(f"  ✗ Deleted: {key}")
-        print(f"\n✓ Revoked {len(deleted)} config(s) for '{args.revoke}'")
+        print(f"\n✓ Revoked {len(deleted)} config(s) for '{args.username}'")
     else:
-        print(f"No configs found for '{args.revoke}'")
+        print(f"No configs found for '{args.username}'")
 
 
 def cmd_purge_kv(secrets, args):
@@ -165,15 +239,17 @@ def cmd_purge_kv(secrets, args):
 
 # --- Config generation ---
 
-def generate_client_configs(secrets, env, uploader=None):
+def generate_client_configs(secrets, env, users, uploader=None):
+    """Generate configs for client-type users.
+
+    Args:
+        users: pre-filtered list of client users
+    """
     clients_dir = OUTPUT_DIR / 'clients'
     clients_dir.mkdir(parents=True, exist_ok=True)
     urls = {}
 
-    for user in secrets.get('users', []):
-        if user.get('type', 'client') != 'client':
-            continue
-
+    for user in users:
         config = render_json(env, 'client.json.j2', {**secrets, 'current_user': user})
 
         output_file = clients_dir / f"client_{user['name']}.json"
@@ -189,10 +265,14 @@ def generate_client_configs(secrets, env, uploader=None):
     return urls
 
 
-def generate_router_configs(secrets, env, uploader=None):
-    router_users = [u for u in secrets.get('users', []) if u.get('type') == 'router']
-    if not router_users:
-        print("⚠ No router users found, skipping", file=sys.stderr)
+def generate_router_configs(secrets, env, users, uploader=None):
+    """Generate configs for router-type users.
+
+    Args:
+        users: pre-filtered list of router users
+    """
+    if not users:
+        print("⚠ No router users to generate", file=sys.stderr)
         return {}
 
     vless_transports = [
@@ -202,7 +282,7 @@ def generate_router_configs(secrets, env, uploader=None):
     ]
 
     urls = {}
-    for router_user in router_users:
+    for router_user in users:
         router_name = router_user['name']
         router_dir = OUTPUT_DIR / 'router' / router_name
         router_dir.mkdir(parents=True, exist_ok=True)
@@ -232,7 +312,7 @@ def generate_router_configs(secrets, env, uploader=None):
             router_urls['anytls'] = url
             print(f"  ↳ URL: {url}")
 
-        # VLESS transports (grpc, ws, http-upgrade)
+        # VLESS transports
         for transport, tag_prefix, filename in vless_transports:
             config = render_json(env, 'router_vless.json.j2', {
                 **context, 'transport': transport, 'tag_prefix': tag_prefix
@@ -251,86 +331,13 @@ def generate_router_configs(secrets, env, uploader=None):
     return urls
 
 
-def save_urls(urls):
-    if not urls.get('clients') and not urls.get('routers'):
-        return
+# --- Subcommand handlers ---
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    urls_file = OUTPUT_DIR / 'urls.json'
-    urls_file.write_text(json.dumps(urls, indent=2, ensure_ascii=False))
-    print(f"\n📋 URLs saved to: {urls_file}")
-
-    readme_file = OUTPUT_DIR / 'urls.md'
-    with open(readme_file, 'w') as f:
-        f.write("# Config URLs\n\n")
-        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        f.write("⚠️ **Keep these URLs private!**\n\n")
-        if urls.get('clients'):
-            f.write("## Clients\n\n")
-            for name, url in urls['clients'].items():
-                f.write(f"### {name}\n```\n{url}\n```\n\n")
-        if urls.get('routers'):
-            f.write("## Routers\n\n")
-            for router_name, router_urls in urls['routers'].items():
-                f.write(f"### {router_name}\n\n")
-                for config_type, url in router_urls.items():
-                    f.write(f"**{config_type}:**\n```\n{url}\n```\n\n")
-    print(f"📋 URLs readme: {readme_file}")
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description='sing-box client/router config generator',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-examples:
-  python generate.py                          Generate locally
-  python generate.py --upload                 Generate + upload to KV
-  python generate.py --target clients         Only clients
-  python generate.py --gen-token              Generate 1 token
-  python generate.py --gen-token --user bob   Generate token for user 'bob'
-  python generate.py --list-kv                List all KV keys
-  python generate.py --revoke phone-m         Delete phone-m configs from KV
-  python generate.py --purge-kv               Delete everything from KV
-        """
-    )
-
-    parser.add_argument('--upload', action='store_true', help='Upload to Cloudflare Workers KV')
-    parser.add_argument('--target', choices=['all', 'clients', 'router'],
-                        nargs='+', default=['all'], help='What to generate')
-
-    parser.add_argument('--gen-token', action='store_true', help='Generate secure token(s)')
-    parser.add_argument('--user', nargs='*', help='User name(s)')
-    parser.add_argument('-n', '--count', type=int, help='Number of tokens')
-    parser.add_argument('--token-length', type=int, default=24)
-
-    parser.add_argument('--list-kv', action='store_true', help='List all KV keys')
-    parser.add_argument('--prefix', help='Filter KV keys by prefix')
-    parser.add_argument('--revoke', metavar='USERNAME', help='Delete user configs from KV')
-    parser.add_argument('--purge-kv', action='store_true', help='Delete ALL from KV')
-    parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation')
-
-    args = parser.parse_args()
-
-    if args.gen_token:
-        cmd_gen_token(args)
-        return
-
+def cmd_generate(args):
+    """Handle 'generate' subcommand."""
     secrets = decrypt_sops(SECRETS_FILE)
-
-    if args.list_kv:
-        cmd_list_kv(secrets, args)
-        return
-    if args.revoke:
-        cmd_revoke(secrets, args)
-        return
-    if args.purge_kv:
-        cmd_purge_kv(secrets, args)
-        return
-
-    # Config generation
     env = get_jinja_env()
+
     uploader = None
     if args.upload:
         uploader = create_uploader(secrets)
@@ -342,13 +349,100 @@ examples:
     targets = args.target
 
     if 'all' in targets or 'clients' in targets:
-        all_urls['clients'] = generate_client_configs(secrets, env, uploader)
+        client_users = filter_users(secrets, args.user, user_type='client')
+        all_urls['clients'] = generate_client_configs(
+            secrets, env, client_users, uploader)
 
     if 'all' in targets or 'router' in targets:
-        all_urls['routers'] = generate_router_configs(secrets, env, uploader)
+        router_users = filter_users(secrets, args.user, user_type='router')
+        all_urls['routers'] = generate_router_configs(
+            secrets, env, router_users, uploader)
 
     if uploader:
         save_urls(all_urls)
+
+
+def cmd_kv_list(args):
+    """Handle 'kv-list' subcommand."""
+    secrets = decrypt_sops(SECRETS_FILE)
+    cmd_list_kv(secrets, args)
+
+
+def cmd_kv_revoke(args):
+    """Handle 'kv-revoke' subcommand."""
+    secrets = decrypt_sops(SECRETS_FILE)
+    cmd_revoke(secrets, args)
+
+
+def cmd_kv_purge(args):
+    """Handle 'kv-purge' subcommand."""
+    secrets = decrypt_sops(SECRETS_FILE)
+    cmd_purge_kv(secrets, args)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='sing-box client/router config generator',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(dest='command', required=True)
+
+    # -- generate --
+    p_gen = sub.add_parser('generate', help='Generate configs (local + optional upload)',
+                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                           epilog="""examples:
+  python generate.py generate                        Generate all locally
+  python generate.py generate --upload               Generate + upload to KV
+  python generate.py generate --user alice bob       Only these users
+  python generate.py generate --target clients       Only client configs
+  python generate.py generate --upload --user alice  Upload only alice""")
+    p_gen.add_argument('--upload', action='store_true',
+                       help='Upload configs to Cloudflare Workers KV')
+    p_gen.add_argument('--target', choices=['all', 'clients', 'router'],
+                       nargs='+', default=['all'],
+                       help='What to generate (default: all)')
+    p_gen.add_argument('--user', nargs='+', metavar='NAME',
+                       help='Generate only for these user(s)')
+    p_gen.set_defaults(func=cmd_generate)
+
+    # -- gen-token --
+    p_tok = sub.add_parser('gen-token', help='Generate secure token(s)',
+                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                           epilog="""examples:
+  python generate.py gen-token                   Generate 1 random token
+  python generate.py gen-token --user bob alice  Tokens formatted for secrets.yaml
+  python generate.py gen-token -n 5              Generate 5 tokens""")
+    p_tok.add_argument('--user', nargs='+', metavar='NAME',
+                       help='Format tokens as secrets.yaml entries for these users')
+    p_tok.add_argument('-n', '--count', type=int,
+                       help='Number of tokens to generate')
+    p_tok.add_argument('--token-length', type=int, default=24,
+                       help='Token byte length (default: 24)')
+    p_tok.set_defaults(func=cmd_gen_token)
+
+    # -- kv-list --
+    p_kv_list = sub.add_parser('kv-list', help='List all keys in KV store')
+    p_kv_list.add_argument('--prefix',
+                           help='Filter keys by prefix')
+    p_kv_list.set_defaults(func=cmd_kv_list)
+
+    # -- kv-revoke --
+    p_kv_rev = sub.add_parser('kv-revoke',
+                              help='Delete all configs for a user from KV')
+    p_kv_rev.add_argument('username', help='User whose configs to delete')
+    p_kv_rev.add_argument('-y', '--yes', action='store_true',
+                          help='Skip confirmation prompt')
+    p_kv_rev.set_defaults(func=cmd_kv_revoke)
+
+    # -- kv-purge --
+    p_kv_purge = sub.add_parser('kv-purge',
+                                help='Delete ALL keys from KV store')
+    p_kv_purge.add_argument('-y', '--yes', action='store_true',
+                            help='Skip confirmation prompt')
+    p_kv_purge.set_defaults(func=cmd_kv_purge)
+
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == '__main__':
