@@ -15,11 +15,12 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 | `certs` | Centralized wildcard TLS certificates (Google ACME + Cloudflare DNS challenge via lego) |
 | `traefik` | Reverse proxy, TLS termination |
 | `synapse` | Matrix homeserver + PostgreSQL |
-| `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx + cron timer |
 | `element` | Element Web + Synapse Admin |
+| `element-call` | Element Call via LiveKit SFU + lk-jwt-service |
+| `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx + cron timer |
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
-| `coturn` | TURN/STUN relay servers for Synapse and Jitsi (native, no container) |
+| `coturn` | TURN/STUN relay server for Jitsi (native, no container) |
 | `wireguard` | WireGuard mesh + client tunnels (native, no container) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 | `router` | OpenWrt router configs: nftables tproxy, network, wireless, firewall, dhcp — distributed via KV |
@@ -60,11 +61,15 @@ infra/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
-├── nextcloud/
+├── element/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
-├── element/
+├── element-call/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
+├── nextcloud/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
@@ -189,7 +194,7 @@ Auto-renewal via cron:
 
 ## Single-instance vs multi-instance
 
-Services deployed to **one server** (synapse, nextcloud, element, jitsi, backup) have `host: server1` in their secrets.
+Services deployed to **one server** (synapse, nextcloud, element, element-call, jitsi, backup) have `host: server1` in their secrets.
 
 Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, sing-box, system, firewall) have `instances:` with a `host:` reference per instance and support `--all`.
 
@@ -227,6 +232,7 @@ sops traefik/secrets/secrets.enc.yaml
 sops synapse/secrets/secrets.enc.yaml
 sops nextcloud/secrets/secrets.enc.yaml
 sops element/secrets/secrets.enc.yaml
+sops element-call/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
 sops jitsi/secrets/secrets.enc.yaml
 sops coturn/secrets/secrets.enc.yaml
@@ -276,6 +282,7 @@ host: server1
 
 synapse:
   server_name: matrix.example.com
+  matrix_rtc_domain: rtc.example.com
   postgres_password: "..."
 ```
 
@@ -337,6 +344,7 @@ instances:
     wg_endpoint: true
     web: true
     turn: true
+    livekit: true
   instance2:
     host: server2
     filter_zone: true
@@ -373,15 +381,6 @@ common:
   cert_domain: example.com
 
 instances:
-  synapse-turn:
-    host: server1
-    realm: matrix.example.com
-    external_ip: "203.0.113.10"
-    listening_ip: "203.0.113.10"
-    static_auth_secret: "..."
-    fingerprint: true
-    user_quota: 100
-    total_quota: 1200
   jitsi-turn:
     host: server2
     realm: meet.example.com
@@ -391,6 +390,20 @@ instances:
     keep_address_family: true
     no_loopback_peers: true
     dh2066: true
+```
+
+### element-call secrets
+
+```yaml
+host: server1
+
+synapse:
+  server_name: matrix.example.com
+
+livekit:
+  rtc_domain: rtc.example.com
+  key: "..."
+  secret: "..."
 ```
 
 ### wireguard secrets
@@ -486,7 +499,7 @@ routers:
 
 ## Usage
 
-### Single-instance (synapse, nextcloud, element, jitsi, backup)
+### Single-instance (synapse, nextcloud, element, element-call, jitsi, backup)
 
 ```bash
 cd synapse/
@@ -512,35 +525,40 @@ python deploy.py deploy --all --no-restart
 
 ### sing-box client/router configs
 
-`sing-box/generate.py` generates client and router configs locally and optionally uploads them to Cloudflare Workers KV for remote distribution via URL.
+`sing-box/generate.py` generates client and router configs locally and optionally uploads them to Cloudflare Workers KV for remote distribution via URL. Uses subcommands:
 
 ```bash
 cd sing-box/
 
 # Generate configs locally
-python generate.py                             # all clients + routers
-python generate.py --target clients            # only clients
-python generate.py --target router             # only routers
+python generate.py generate                        # all clients + routers
+python generate.py generate --target clients       # only clients
+python generate.py generate --target router        # only routers
+python generate.py generate --user alice bob       # only specific users
 
 # Generate + upload to Cloudflare KV
-python generate.py --upload
+python generate.py generate --upload
+python generate.py generate --upload --user alice   # upload only alice
 
 # Token management
-python generate.py --gen-token                 # generate 1 token
-python generate.py --gen-token -n 5            # generate 5 tokens
-python generate.py --gen-token --user bob      # generate token for user 'bob'
+python generate.py gen-token                        # generate 1 token
+python generate.py gen-token -n 5                   # generate 5 tokens
+python generate.py gen-token --user bob alice       # tokens formatted for secrets.yaml
 
 # KV management
-python generate.py --list-kv                   # list all keys in KV
-python generate.py --revoke phone-m            # delete phone-m configs from KV
-python generate.py --purge-kv                  # delete everything from KV
+python generate.py kv-list                          # list all keys in KV
+python generate.py kv-list --prefix phone           # filter by prefix
+python generate.py kv-revoke phone-m                # delete phone-m configs from KV
+python generate.py kv-purge                         # delete everything from KV
 ```
+
+When uploading with `--user`, the generated `urls.json` is merged with existing data instead of overwriting — so single-user uploads don't erase other users' URLs.
 
 Add new user:
 
-1. `python generate.py --gen-token --user new-phone`
+1. `python generate.py gen-token --user new-phone`
 2. `sops secrets/secrets.enc.yaml` — add user block with token
-3. `python generate.py --upload`
+3. `python generate.py generate --upload`
 4. Send URL from `output/urls.md`
 
 ### Router configs
@@ -651,6 +669,8 @@ Router configs (via KV):
 ├── element_synapse_admin/
 │   ├── element_config.json
 │   └── synapse_config.json
+├── element-call/
+│   └── config/livekit.yaml
 ├── metrics/
 │   └── prometheus/prometheus.yml
 ├── jitsi/
@@ -748,7 +768,7 @@ Controlled by `behind_cf` flag in service secrets.
 
 ## Pod vs shared network
 
-Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx.
+Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx, element-call (livekit + lk-jwt).
 
 Jitsi uses a **Quadlet Network** instead — containers need DNS-based discovery (`NetworkAlias=xmpp.meet.jitsi` for prosody), which doesn't work inside a pod since pods share a single network namespace and bypass container DNS.
 
