@@ -4,7 +4,7 @@ Description=synapse-admin container
 [Container]
 Image=ghcr.io/etkecc/synapse-admin:latest
 ContainerName=synapse-admin
-Volume=/opt/podman/element_synapse_admin/synapse_config.json:/app/config.json:ro
+Volume=/opt/podman/element_synapse_admin/synapse_config.json:/var/public/config.json:ro
 Volume=/etc/localtime:/etc/localtime:ro
 AutoUpdate=registry
 Label=traefik.enable=true
