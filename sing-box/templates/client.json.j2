@@ -6,39 +6,29 @@
   },
   "dns": {
     "servers": [
-      {
-        "type": "https",
-        "tag": "cloudflare",
-        "server": "1.1.1.1"
-      },
-      {
-        "type": "https",
-        "tag": "google",
-        "server": "8.8.8.8"
-      }
+      {"type": "https", "tag": "cloudflare", "server": "1.1.1.1"},
+      {"type": "https", "tag": "google", "server": "8.8.8.8"},
+      {"type": "https", "tag": "yandex", "server": "77.88.8.8"}
     ],
     "rules": [
+      {"rule_set": "youtube", "server": "cloudflare"},
+      {"domain_suffix": "proton.me", "server": "google"},
+      {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "server": "yandex"},
       {
-        "domain_suffix": "proton.me",
-        "rule_set": "category-gov-ru",
-        "server": "google"
+        "rule_set": [
+{% for s in srs.user %}
+          "{{ s.name }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+        ],
+        "server": "yandex"
       }
     ]
   },
   "inbounds": [
-    {
-      "type": "tun",
-      "tag": "tun-in",
+    {"type": "tun", "tag": "tun-in",
       "address": "172.18.0.1/30",
-      "auto_route": true,
-      "strict_route": true,
-      "route_exclude_address": [
-        "192.168.0.0/16",
-        "10.0.0.0/8",
-        "172.16.0.0/12",
-        "fc00::/7"
-      ]
-    }
+      "auto_route": true, "strict_route": true,
+      "route_exclude_address": [ "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "fc00::/7" ]}
   ],
   "outbounds": [
     {
@@ -85,9 +75,14 @@
     "rules": [
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
+{% for rule in current_user.custom_rules | default([]) %}
+      {{ rule | to_json }},
+{% endfor %}
+      {"port": 123, "outbound": "direct"},
+      {"ip_is_private": true, "outbound": "direct"},
       {"protocol": "bittorrent", "action": "reject"},
-      {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "outbound": "direct"},
       {"rule_set": "youtube", "outbound": "anytls-balancer"},
+      {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "outbound": "direct"},
       {
         "rule_set": [
 {% for s in srs.user %}
@@ -95,12 +90,7 @@
 {% endfor %}
         ],
         "outbound": "direct"
-      },
-{% for rule in current_user.custom_rules | default([]) %}
-      {{ rule | to_json }},
-{% endfor %}
-      {"port": 123, "outbound": "direct"},
-      {"ip_is_private": true, "outbound": "direct"}
+      }
     ],
     "rule_set": [
 {% for s in srs.user %}
@@ -133,9 +123,6 @@
     "default_domain_resolver": "cloudflare"
   },
   "experimental": {
-    "cache_file": {
-      "enabled": true,
-      "path": "sing-box_cache.db"
-    }
+    "cache_file": { "enabled": true, "path": "sing-box_cache.db" }
   }
 }
