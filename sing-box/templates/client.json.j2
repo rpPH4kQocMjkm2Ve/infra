@@ -12,9 +12,10 @@
       {"type": "https", "tag": "yandex", "server": "77.88.8.8"}
     ],
     "rules": [
+      {"rule_set": "category-ads-all", "action": "reject"},
       {"rule_set": "youtube", "domain_suffix": "gvt1.com", "server": "cloudflare"},
       {"domain_suffix": "proton.me", "server": "google"},
-      {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "server": "yandex"},
+      {"rule_set": ["category-ru", "geosite-cn", "category-ir"], "server": "yandex"},
       {
         "rule_set": [
 {% for s in srs.user %}
@@ -73,8 +74,9 @@
       {"port": 123, "outbound": "direct"},
       {"ip_is_private": true, "outbound": "direct"},
       {"protocol": "bittorrent", "action": "reject"},
+      {"rule_set": "category-ads-all", "action": "reject"},
       {"rule_set": "youtube", "domain_suffix": "gvt1.com", "outbound": "naive-balancer"},
-      {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "outbound": "direct"},
+      {"rule_set": ["category-ru", "geosite-cn", "category-ir", "geoip-ru", "geoip-cn", "geoip-ir"], "outbound": "direct"},
       {
         "rule_set": [
 {% for s in srs.user %}
@@ -96,10 +98,13 @@
       },
 {% endfor %}
 {% set static_rules = [
-    ('category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
+    ('category-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ru.srs'),
     ('geosite-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs'),
+    ('category-ir', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ir.srs'),
     ('geoip-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs'),
     ('geoip-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs'),
+    ('geoip-ir', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ir.srs'),
+    ('category-ads-all', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs'),
     ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs')
 ] %}
 {% for tag, url in static_rules %}

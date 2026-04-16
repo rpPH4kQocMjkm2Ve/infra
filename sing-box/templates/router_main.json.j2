@@ -17,8 +17,9 @@
     "rules": [
       { "domain_suffix": [".local", ".lan"], "server": "local" },
       { "domain_suffix": "proton.me", "server": "google", "strategy": "ipv4_only" },
-      { "rule_set": ["router", "youtube", "telegram"], "server": "cloudflare", "strategy": "ipv4_only" },
-      { "rule_set": "category-gov-ru", "server": "yandex" }
+      { "rule_set": "category-ads-all", "action": "reject" },
+      { "rule_set": ["router", "openai", "youtube", "telegram", "reddit"], "server": "cloudflare", "strategy": "ipv4_only" },
+      { "rule_set": ["category-ru", "category-ir", "geosite-cn"], "server": "yandex" }
     ]
   },
   "inbounds": [
@@ -68,9 +69,13 @@
         "url": "{{ srs.router.link }}"
       },
 {% set static_rules = [
-    ('category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
+    ('openai', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs'),
+    ('category-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ru.srs'),
+    ('category-ir', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ir.srs'),
     ('telegram', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-telegram.srs'),
-    ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs')
+    ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs'),
+    ('category-ads-all', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs'),
+    ('reddit', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-reddit.srs')
 ] %}
 {% for tag, url in static_rules %}
       {
@@ -86,7 +91,8 @@
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
       {"port": [123], "outbound": "direct"},
-      {"rule_set": ["router", "youtube", "telegram"], "outbound": "naive-balancer"}
+      {"rule_set": "category-ads-all", "action": "reject"},
+      {"rule_set": ["router", "openai", "youtube", "telegram", "reddit"], "outbound": "naive-balancer"}
     ]
   },
   "experimental": {
