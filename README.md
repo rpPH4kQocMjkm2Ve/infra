@@ -95,12 +95,12 @@ infra/
 │   ├── generate.py            ← client/router config generator + KV
 │   ├── templates/
 │   ├── secrets/
-│   └── output/                ← gitignored
+│   └── .output/               ← gitignored
 └── router/
     ├── generate.py            ← OpenWrt config generator + KV
     ├── templates/
     ├── secrets/
-    └── output/                ← gitignored
+    └── .output/               ← gitignored
 ```
 
 ## How it works
@@ -532,10 +532,7 @@ shared:
     config_dir: "/etc/sing-box"
     files:
       - main.json
-      - sing-box_anytls.json
-      - sing-box_vless_grpc.json
-      - sing-box_vless_ws.json
-      - sing-box_vless_httpupgrade.json
+      - sing-box_naive.json
 
 routers:
   router-1:
@@ -768,10 +765,7 @@ Router configs (via KV):
 
 /etc/sing-box/
 ├── main.json
-├── sing-box_anytls.json
-├── sing-box_vless_grpc.json
-├── sing-box_vless_ws.json
-└── sing-box_vless_httpupgrade.json
+└── sing-box_naive.json
 
 /root/
 ├── sing-box

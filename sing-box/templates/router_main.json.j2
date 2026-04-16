@@ -2,7 +2,7 @@
 {
   "log": {
     "disabled": false,
-    "level": "info",
+    "level": "warn",
     "output": "{{ router.log_path }}",
     "timestamp": true
   },
@@ -42,10 +42,7 @@
       "routing_mark": {{ router.routing_mark }}
     },
 {% set balancers = [
-    ('anytls-balancer', 'anytls'),
-    ('vless-balancer-grpc', 'vless-grpc'),
-    ('vless-balancer-ws', 'vless-ws'),
-    ('vless-balancer-http-upgrade', 'vless-http-upgrade')
+    ('naive-balancer', 'naive')
 ] %}
 {% for balancer_tag, outbound_prefix in balancers %}
     {
@@ -89,7 +86,7 @@
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
       {"port": [123], "outbound": "direct"},
-      {"rule_set": ["router", "youtube", "telegram"], "outbound": "anytls-balancer"}
+      {"rule_set": ["router", "youtube", "telegram"], "outbound": "naive-balancer"}
     ]
   },
   "experimental": {

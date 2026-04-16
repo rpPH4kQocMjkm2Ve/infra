@@ -1,88 +1,23 @@
 {
   "inbounds": [
     {
-      "type": "anytls",
-      "tag": "anytls_tls",
+      "type": "naive",
+      "tag": "naive_in",
       "listen": "::",
       "listen_port": 8443,
       "users": [
 {% for u in inbound_users %}
         {
-          "name": "{{ u.name }}",
+          "username": "{{ u.name }}",
           "password": "{{ u.password }}"
         }{{ "," if not loop.last else "" }}
 {% endfor %}
       ],
+      "quic_congestion_control": "bbr2",
       "tls": {
         "enabled": true,
-        "server_name": "{{ current_instance.reality.server_name }}",
-        "reality": {
-          "enabled": true,
-          "handshake": {
-            "server": "{{ current_instance.reality.server_name }}",
-            "server_port": 443
-          },
-          "private_key": "{{ keys.vless }}",
-          "short_id": [
-{% for u in inbound_users %}
-            "{{ u.short_id }}"{{ "," if not loop.last else "" }}
-{% endfor %}
-          ]
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless_grpc",
-      "listen": "::",
-      "listen_port": 2053,
-      "users": [
-{% for u in inbound_users %}
-        {
-          "name": "{{ u.name }}",
-          "uuid": "{{ u.uuid }}"
-        }{{ "," if not loop.last else "" }}
-{% endfor %}
-      ],
-      "transport": {
-        "type": "grpc",
-        "service_name": "{{ keys.grpc }}"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless_ws",
-      "listen": "::",
-      "listen_port": 3053,
-      "users": [
-{% for u in inbound_users %}
-        {
-          "name": "{{ u.name }}",
-          "uuid": "{{ u.uuid }}"
-        }{{ "," if not loop.last else "" }}
-{% endfor %}
-      ],
-      "transport": {
-        "type": "ws",
-        "path": "{{ keys.ws }}"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless_http_upgrade",
-      "listen": "::",
-      "listen_port": 4053,
-      "users": [
-{% for u in inbound_users %}
-        {
-          "name": "{{ u.name }}",
-          "uuid": "{{ u.uuid }}"
-        }{{ "," if not loop.last else "" }}
-{% endfor %}
-      ],
-      "transport": {
-        "type": "httpupgrade",
-        "path": "{{ keys.http_upgrade }}"
+        "certificate_path": "/etc/ssl/certs/{{ common.domain }}.crt",
+        "key_path": "/etc/ssl/private/{{ common.domain }}.key"
       }
     }
   ]

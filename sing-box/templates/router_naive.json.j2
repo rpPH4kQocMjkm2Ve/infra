@@ -1,0 +1,24 @@
+{# templates/router_naive.json.j2 #}
+{
+  "outbounds": [
+{% set target = relay_instances if relay_instances else instances %}
+{% for name, inst in target.items() %}
+    {
+      "type": "naive",
+      "tag": "naive-{{ loop.index }}",
+      "server": "{{ inst.address }}",
+      "server_port": 443,
+      "username": "{{ current_user.name }}",
+      "password": "{{ current_user.password }}",
+      "udp_over_tcp": true,
+      "quic_congestion_control": "bbr2",
+      "tls": {
+        "enabled": true,
+        "server_name": "{{ inst.reality.server_name if inst.reality else reality.server_name }}",
+        "insecure": false
+      },
+      "routing_mark": {{ router.routing_mark }}
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+  ]
+}

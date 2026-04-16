@@ -13,32 +13,23 @@
       "tag": "proxy-balancer",
       "outbounds": [
 {% for name, inst in instances.items() %}
-        "anytls-{{ loop.index }}"{{ "," if not loop.last else "" }}
+        "naive-{{ loop.index }}"{{ "," if not loop.last else "" }}
 {% endfor %}
       ]
     },
 {% for name, inst in instances.items() %}
     {
-      "type": "anytls",
-      "tag": "anytls-{{ loop.index }}",
+      "type": "naive",
+      "tag": "naive-{{ loop.index }}",
       "server": "{{ inst.address }}",
       "server_port": 443,
+      "username": "{{ current_instance.name }}",
       "password": "{{ current_instance.password }}",
-      "idle_session_timeout": "120s",
-      "idle_session_check_interval": "60s",
-      "min_idle_session": 2,
+      "udp_over_tcp": true,
+      "quic_congestion_control": "bbr2",
       "tls": {
         "enabled": true,
-        "server_name": "{{ inst.reality.server_name }}",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "{{ public_key }}",
-          "short_id": "{{ current_instance.short_id }}"
-        }
+        "server_name": "{{ inst.reality.server_name }}"
       }
     },
 {% endfor %}

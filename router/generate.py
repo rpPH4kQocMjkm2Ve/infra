@@ -13,7 +13,7 @@ from lib.cloudflare import create_uploader
 BASE = Path(__file__).parent
 TEMPLATES_DIR = BASE / 'templates'
 SECRETS_FILE = BASE / 'secrets' / 'secrets.enc.yaml'
-OUTPUT_DIR = BASE / 'output'
+OUTPUT_DIR = BASE / '.output'
 
 # (template, output_filename, kv_key)
 KV_FILES = [

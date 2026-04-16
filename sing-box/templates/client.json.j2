@@ -5,6 +5,7 @@
     "timestamp": true
   },
   "dns": {
+    "strategy": "ipv4_only",
     "servers": [
       {"type": "https", "tag": "cloudflare", "server": "1.1.1.1"},
       {"type": "https", "tag": "google", "server": "8.8.8.8"},
@@ -33,36 +34,27 @@
   "outbounds": [
     {
       "type": "urltest",
-      "tag": "anytls-balancer",
+      "tag": "naive-balancer",
       "outbounds": [
 {% set target = relay_instances if relay_instances else instances %}
 {% for name, inst in target.items() %}
-        "anytls-{{ loop.index }}"{{ "," if not loop.last else "" }}
+        "naive-{{ loop.index }}"{{ "," if not loop.last else "" }}
 {% endfor %}
       ]
     },
 {% for name, inst in target.items() %}
     {
-      "type": "anytls",
-      "tag": "anytls-{{ loop.index }}",
+      "type": "naive",
+      "tag": "naive-{{ loop.index }}",
       "server": "{{ inst.address }}",
       "server_port": 443,
+      "username": "{{ current_user.name }}",
       "password": "{{ current_user.password }}",
-      "idle_session_timeout": "120s",
-      "idle_session_check_interval": "60s",
-      "min_idle_session": 2,
+      "udp_over_tcp": true,
+      "quic_congestion_control": "bbr2",
       "tls": {
         "enabled": true,
-        "server_name": "{{ inst.reality.server_name if inst.reality else reality.server_name }}",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "{{ public_key }}",
-          "short_id": "{{ current_user.short_id }}"
-        }
+        "server_name": "{{ inst.reality.server_name if inst.reality else reality.server_name }}"
       }
     },
 {% endfor %}
@@ -81,7 +73,7 @@
       {"port": 123, "outbound": "direct"},
       {"ip_is_private": true, "outbound": "direct"},
       {"protocol": "bittorrent", "action": "reject"},
-      {"rule_set": "youtube", "domain_suffix": "gvt1.com", "outbound": "anytls-balancer"},
+      {"rule_set": "youtube", "domain_suffix": "gvt1.com", "outbound": "naive-balancer"},
       {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "outbound": "direct"},
       {
         "rule_set": [

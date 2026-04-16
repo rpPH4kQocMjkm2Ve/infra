@@ -16,7 +16,7 @@ from lib.cloudflare import CFKVUploader, create_uploader
 BASE = Path(__file__).parent
 TEMPLATES_DIR = BASE / 'templates'
 SECRETS_FILE = BASE / 'secrets' / 'secrets.enc.yaml'
-OUTPUT_DIR = BASE / 'output'
+OUTPUT_DIR = BASE / '.output'
 
 
 def get_jinja_env():
@@ -275,12 +275,6 @@ def generate_router_configs(secrets, env, users, uploader=None):
     if not users:
         return {}
 
-    vless_transports = [
-        ('grpc', 'vless-grpc', 'sing-box_vless_grpc.json'),
-        ('ws', 'vless-ws', 'sing-box_vless_ws.json'),
-        ('http-upgrade', 'vless-http-upgrade', 'sing-box_vless_httpupgrade.json'),
-    ]
-
     urls = {}
     for router_user in users:
         router_name = router_user['name']
@@ -304,29 +298,16 @@ def generate_router_configs(secrets, env, users, uploader=None):
             router_urls['main'] = url
             print(f"  ↳ URL: {url}")
 
-        # AnyTLS outbounds
-        anytls_filename = 'sing-box_anytls.json'
-        anytls_config = render_json(env, 'router_anytls.json.j2', context)
-        (router_dir / anytls_filename).write_text(anytls_config)
-        print(f"✓ Created: {router_dir / anytls_filename}")
+        # Naive outbounds
+        naive_filename = 'sing-box_naive.json'
+        naive_config = render_json(env, 'router_naive.json.j2', context)
+        (router_dir / naive_filename).write_text(naive_config)
+        print(f"✓ Created: {router_dir / naive_filename}")
 
         if uploader and token:
-            url = uploader.upload(f"{token}/{anytls_filename}", anytls_config)
-            router_urls['anytls'] = url
+            url = uploader.upload(f"{token}/{naive_filename}", naive_config)
+            router_urls['naive'] = url
             print(f"  ↳ URL: {url}")
-
-        # VLESS transports
-        for transport, tag_prefix, filename in vless_transports:
-            config = render_json(env, 'router_vless.json.j2', {
-                **context, 'transport': transport, 'tag_prefix': tag_prefix
-            })
-            (router_dir / filename).write_text(config)
-            print(f"✓ Created: {router_dir / filename}")
-
-            if uploader and token:
-                url = uploader.upload(f"{token}/{filename}", config)
-                router_urls[transport] = url
-                print(f"  ↳ URL: {url}")
 
         if router_urls:
             urls[router_name] = router_urls
