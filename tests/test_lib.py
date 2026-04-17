@@ -621,3 +621,82 @@ class TestServiceDeployer:
         restart_calls = [c for c in mock_ssh.call_args_list if "podman pull" in str(c)]
         assert len(restart_calls) == 1
         assert "ghcr.io/app:latest" in str(restart_calls[0])
+
+    # ── callable files/setup_dirs ──
+
+    def test_render_callable_files(self, tmp_path, capsys):
+        (tmp_path / "app.conf.j2").write_text("name={{ instance_name }}\n")
+
+        def make_files(secrets, instance_name):
+            return [("app.conf.j2", f"/opt/{instance_name}/conf")]
+
+        d = self._make_deployer(tmp_path, files=make_files, multi_instance=True)
+        from lib.jinja import create_jinja_env
+        d.render({"instances": {"i1": {"host": "srv1"}}}, create_jinja_env(tmp_path), "i1")
+        out = capsys.readouterr().out
+        assert "/opt/i1/conf" in out
+
+    def test_render_callable_files_static_list_fallback(self, tmp_path, capsys):
+        (tmp_path / "app.conf.j2").write_text("host={{ host }}\n")
+        d = self._make_deployer(tmp_path, files=[("app.conf.j2", "/opt/conf")])
+        from lib.jinja import create_jinja_env
+        d.render({"host": "srv1"}, create_jinja_env(tmp_path))
+        out = capsys.readouterr().out
+        assert "/opt/conf" in out
+
+    @patch("lib.deploy.rsync_file", return_value=True)
+    @patch("lib.deploy._apply_opts")
+    @patch("lib.deploy.ssh_run")
+    def test_deploy_callable_files(self, mock_ssh, mock_opts, mock_rsync, tmp_path):
+        (tmp_path / "t.j2").write_text("x\n")
+
+        def make_files(secrets, instance_name):
+            return [("t.j2", f"/opt/{instance_name}/conf")]
+
+        d = self._make_deployer(tmp_path, files=make_files, multi_instance=True)
+        from lib.jinja import create_jinja_env
+        hosts = {"srv1": {"address": "s.example.com"}}
+        secrets = {"instances": {"i1": {"host": "srv1"}}}
+        d.deploy(hosts, secrets, create_jinja_env(tmp_path), instance_name="i1")
+        rsync_calls = [str(c) for c in mock_rsync.call_args_list]
+        assert any("/opt/i1/conf" in c for c in rsync_calls)
+
+    @patch("lib.deploy.rsync_file", return_value=True)
+    @patch("lib.deploy._apply_opts")
+    @patch("lib.deploy.ssh_run")
+    def test_deploy_callable_setup_dirs(self, mock_ssh, mock_opts, mock_rsync, tmp_path):
+        (tmp_path / "t.j2").write_text("x\n")
+
+        def make_setup_dirs(secrets, instance_name):
+            return [f"/opt/{instance_name}/data", f"/opt/{instance_name}/cache"]
+
+        d = self._make_deployer(
+            tmp_path,
+            files=[("t.j2", "/opt/conf")],
+            setup_dirs=make_setup_dirs,
+            multi_instance=True,
+        )
+        from lib.jinja import create_jinja_env
+        hosts = {"srv1": {"address": "s.example.com"}}
+        secrets = {"instances": {"i1": {"host": "srv1"}}}
+        d.deploy(hosts, secrets, create_jinja_env(tmp_path), instance_name="i1")
+        mkdir_calls = [str(c) for c in mock_ssh.call_args_list if "mkdir" in str(c)]
+        assert any("/opt/i1/data" in c for c in mkdir_calls)
+        assert any("/opt/i1/cache" in c for c in mkdir_calls)
+
+    @patch("lib.deploy.rsync_file", return_value=True)
+    @patch("lib.deploy._apply_opts")
+    @patch("lib.deploy.ssh_run")
+    def test_deploy_callable_setup_dirs_static_fallback(self, mock_ssh, mock_opts, mock_rsync, tmp_path):
+        (tmp_path / "t.j2").write_text("x\n")
+        d = self._make_deployer(
+            tmp_path,
+            files=[("t.j2", "/opt/conf")],
+            setup_dirs=["/opt/static/data"],
+        )
+        from lib.jinja import create_jinja_env
+        hosts = {"srv1": {"address": "s.example.com"}}
+        secrets = {"host": "srv1"}
+        d.deploy(hosts, secrets, create_jinja_env(tmp_path))
+        mkdir_calls = [str(c) for c in mock_ssh.call_args_list if "mkdir" in str(c)]
+        assert any("/opt/static/data" in c for c in mkdir_calls)

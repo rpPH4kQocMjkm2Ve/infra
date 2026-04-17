@@ -163,6 +163,23 @@ Applied after rsync via `chown`/`chmod` over SSH. Shown in `render` and `diff` o
 
 Useful when the restart command depends on per-instance secrets (e.g. pulling a specific container image before restarting).
 
+## Dynamic file paths
+
+`files` and `setup_dirs` can be **callables** that receive `(secrets, instance_name)` and return a list:
+
+```python
+# Dynamic paths per instance
+'files': lambda secrets, instance_name: [
+    ('container.j2', f'/etc/containers/systemd/{secrets["common"]["basename"]}.container'),
+    ('config.yml.j2', f'/opt/podman/{secrets["common"]["basename"]}/config.yml'),
+],
+'setup_dirs': lambda secrets, instance_name: [
+    f'/opt/podman/{secrets["common"]["basename"]}',
+],
+```
+
+Useful when paths depend on secrets (e.g., container name from `common.basename`). Static lists still work as before — callable is checked first.
+
 ## Certificates
 
 Wildcard certificate is managed centrally by `certs/deploy.py`:
@@ -217,25 +234,29 @@ The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate av
 sing-box uses two instance groups in one secrets file — proxy nodes and relay nodes:
 
 ```yaml
+common:
+  basename: my-container          # container/pod name, systemd unit name
+  volume_path: /opt/podman/my-container
+  image: ghcr.io/sagernet/sing-box:latest
+
 instances:                        # proxy nodes (deployed via deploy.py)
   instance1:
     host: server1
     reality:
       server_name: "proxy-sni.com"
-    image: "ghcr.io/sagernet/sing-box:latest"
   instance2:
     host: server2
     reality:
       server_name: "proxy-sni.com"
-    image: "ghcr.io/sagernet/sing-box:latest"
+    image: ghcr.io/sagernet/sing-box:latest-beta    # per-instance override
 
 relay_instances:                  # relay nodes (deployed via deploy-relay.py)
   relay-eu:
-    host: server2
+    host: server3
     address: "..."
     reality:
       server_name: "relay-sni.com"
-    image: "ghcr.io/sagernet/sing-box:latest"
+    image: ghcr.io/sagernet/sing-box:latest-testing    # per-instance override
     password: "..."               # relay→proxy authentication
     short_id: "..."
 

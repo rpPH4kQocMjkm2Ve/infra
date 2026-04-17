@@ -46,8 +46,8 @@ Standard pytest suite. No network access, no SSH, no real secrets — all subpro
 - `_parse_file_entry`: two-element and three-element tuples, callable remote path resolution
 - `_build_context`: passthrough for single-instance, structured context for multi-instance (common/instance/instance_name), custom builder override, missing `common` key fallback, custom `instances_key` for non-standard instance groups (e.g., `relay_instances`)
 - `_get_host_ref`: single vs multi-instance host resolution
-- `render`: outputs rendered template content with variables and file options for both single and multi-instance modes
-- `deploy`: triggers restart command on file change, skips restart when unchanged, respects `--no-restart` flag, creates setup directories via `mkdir -p`, applies owner/mode options, calls secrets hooks with correct arguments, supports callable `restart_cmd` with instance-specific parameters
+- `render`: outputs rendered template content with variables and file options for both single and multi-instance modes, supports callable `files`
+- `deploy`: triggers restart command on file change, skips restart when unchanged, respects `--no-restart` flag, creates setup directories via `mkdir -p`, applies owner/mode options, calls secrets hooks with correct arguments, supports callable `restart_cmd` with instance-specific parameters, supports callable `files` and `setup_dirs` with static fallback
 
 ## Test environment
 

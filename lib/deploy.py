@@ -96,7 +96,8 @@ class ServiceDeployer:
         ctx = self._build_context(secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;36m── {label} ──\033[0m")
-        for entry in self.files:
+        files = self.files(secrets, instance_name) if callable(self.files) else self.files
+        for entry in files:
             tpl, rp, opts = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
             print(f"\033[1;33m═══ {name} → {rp}{_fmt_opts(opts)} ═══\033[0m")
@@ -108,7 +109,8 @@ class ServiceDeployer:
         target, port = self._get_target(hosts, secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;36m── {label} ({target}) ──\033[0m")
-        for entry in self.files:
+        files = self.files(secrets, instance_name) if callable(self.files) else self.files
+        for entry in files:
             tpl, rp, opts = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
             rendered = env.get_template(tpl).render(**ctx)
@@ -130,13 +132,16 @@ class ServiceDeployer:
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;33m→\033[0m deploying {label} to {target}")
 
-        if self.setup_dirs:
-            ssh_run(target, f"mkdir -p {' '.join(self.setup_dirs)}", port)
+        files = self.files(secrets, instance_name) if callable(self.files) else self.files
+        setup_dirs = self.setup_dirs(secrets, instance_name) if callable(self.setup_dirs) else self.setup_dirs
+
+        if setup_dirs:
+            ssh_run(target, f"mkdir -p {' '.join(setup_dirs)}", port)
 
         changed = False
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-            for entry in self.files:
+            for entry in files:
                 tpl, rp, opts = self._parse_file_entry(entry, secrets)
                 rendered = env.get_template(tpl).render(**ctx)
                 local_file = tmpdir / tpl.removesuffix('.j2')
