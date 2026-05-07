@@ -1,0 +1,8 @@
+## Managed by infra repo
+logfile = /var/log/i2pd/i2pd.log
+loglevel = error
+port = {{ current_instance.port if current_instance.port else common.port }}
+ipv4 = true
+ipv6 = false
+bandwidth = 10mb
+floodfill = true

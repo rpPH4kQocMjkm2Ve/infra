@@ -25,5 +25,9 @@
   <port protocol="tcp" port="7881"/>
   <port protocol="udp" port="50100-50200"/>
 {% endif %}
+{% if instance.i2pd | default(false) %}
+  <port protocol="tcp" port="{{ common.i2pd_port }}"/>
+  <port protocol="udp" port="{{ common.i2pd_port }}"/>
+{% endif %}
   <forward/>
 </zone>
