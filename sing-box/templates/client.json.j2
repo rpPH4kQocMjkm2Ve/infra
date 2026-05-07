@@ -73,6 +73,7 @@
 {% endfor %}
       {"port": 123, "outbound": "direct"},
       {"ip_is_private": true, "outbound": "direct"},
+      {"process_name": ["qbittorrent", "i2pd"], "user": "i2pd", "outbound": "direct"},
       {"protocol": "bittorrent", "action": "reject"},
       {"rule_set": "category-ads-all", "action": "reject"},
       {"rule_set": "youtube", "domain_suffix": "gvt1.com", "outbound": "naive-balancer"},
