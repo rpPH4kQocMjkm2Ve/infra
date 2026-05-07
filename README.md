@@ -10,7 +10,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 
 | Service | What |
 |---|---|
-| `system` | Base OS hardening: sshd, sysctl, systemd-networkd, maintenance timers (btrfs scrub, paccache, sysctl reapply) |
+| `system` | Base OS hardening: sshd (TCP forwarding allowed), sysctl, systemd-networkd, maintenance timers (btrfs scrub, paccache, sysctl reapply) |
 | `firewall` | Firewalld zones: public, wireguard, filter-closed, trusted — ports opened per-instance from secrets |
 | `backup` | Kopia snapshots to S3 with btrfs atomic snapshots, systemd timer |
 | `certs` | Centralized wildcard TLS certificates (Google ACME + Cloudflare DNS challenge via lego) |
@@ -20,6 +20,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 | `element-call` | Element Call via LiveKit SFU + lk-jwt-service |
 | `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx + cron timer |
 | `metrics` | Prometheus + Node Exporter + Grafana |
+| `i2p` | I2P anonymous overlay network (i2pd daemon, native, no container) |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
 | `coturn` | TURN/STUN relay server for Jitsi (native, no container) |
 | `wireguard` | WireGuard mesh + client tunnels (native, no container) |
@@ -75,6 +76,10 @@ infra/
 │   ├── templates/
 │   └── secrets/
 ├── metrics/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
+├── i2p/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
@@ -270,13 +275,15 @@ users:                            # same credentials for both relay and proxy in
 
 **Architecture:** Users connect to relay instances, relay proxies traffic to proxy nodes, proxy nodes route through WARP.
 
+**Direct outbound rules:** Client configs bypass the proxy for BitTorrent traffic (rejected) and route `qbittorrent`/`i2pd` processes and the `i2pd` user directly — these services need uncapped bandwidth or unfiltered connectivity.
+
 **Removing relay:** If `relay_instances` is removed from secrets, clients connect directly to proxy nodes and proxy inbounds accept `users` credentials — no code changes needed.
 
 ## Single-instance vs multi-instance
 
 Services deployed to **one server** (synapse, nextcloud, element, element-call, jitsi, backup) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, sing-box, system, firewall) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, sing-box, system, firewall, i2p) have `instances:` with a `host:` reference per instance and support `--all`.
 
 **Router** uses a different model — multiple routers defined under `routers:` in secrets, configs delivered via KV instead of SSH.
 
@@ -284,7 +291,7 @@ Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, 
 
 Most services run as **Podman containers** managed via Quadlet units.
 
-**coturn**, **wireguard**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay). Only config files are deployed, no Quadlet units.
+**i2p**, **coturn**, **wireguard**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay). Only config files are deployed, no Quadlet units.
 
 **Router** configs are native OpenWrt UCI/nftables files — no containers involved.
 
@@ -319,6 +326,7 @@ sops coturn/secrets/secrets.enc.yaml
 sops wireguard/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
 sops system/secrets/secrets.enc.yaml
+sops i2p/secrets/secrets.enc.yaml
 sops firewall/secrets/secrets.enc.yaml
 sops backup/secrets/secrets.enc.yaml
 sops router/secrets/secrets.enc.yaml
@@ -411,6 +419,7 @@ instances:
 common:
   ssh_port: 2222
   wg_port: 51453
+  i2pd_port: 12345
   trusted_ips:
     - 10.0.0.0/8
     - ...
@@ -425,6 +434,7 @@ instances:
     web: true
     turn: true
     livekit: true
+    i2pd: true
   instance2:
     host: server2
     filter_zone: true
@@ -433,6 +443,8 @@ instances:
     wg_endpoint: true
     web: true
     turn: true
+    livekit: true
+    i2pd: true
 ```
 
 ### backup secrets
@@ -586,7 +598,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, coturn, wireguard, sing-box, system, firewall)
+### Multi-instance (traefik, metrics, coturn, wireguard, sing-box, system, firewall, i2p)
 
 ```bash
 cd firewall/
@@ -675,6 +687,7 @@ Native service configs:
 - backup → `/root/scripts/backup.sh`, systemd service + timer
 - coturn → `/etc/turnserver/turnserver.conf`
 - wireguard → `/etc/wireguard/wg0.conf`
+- i2p → `/etc/i2pd/i2pd.conf`
 
 Router configs (via KV):
 - nftables → `/etc/nftables/nft-ipv6`
@@ -722,6 +735,9 @@ Router configs (via KV):
 
 /etc/wireguard/
 └── wg0.conf
+
+/etc/i2pd/
+└── i2pd.conf
 
 /root/scripts/
 └── backup.sh
